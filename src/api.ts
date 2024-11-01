@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { AxiosInstance } from "axios";
 
 import type raw from "./rawTypes";
 
@@ -28,15 +29,20 @@ interface APICallArgs {
 };
 
 export class TelegramAPI {
-  declare private token: string;
+  declare private axios?: AxiosInstance;
 
   constructor(token?: string) {
     if (token)
-      this.token = token;
+      this.setToken(token);
   }
 
   setToken(token: string) {
-    this.token = token;
+    this.axios = axios.create({
+      baseURL: `https://api.telegram.org/bot${token}/`,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      }
+    });
   }
 
   call(
@@ -81,8 +87,8 @@ export class TelegramAPI {
     raw.Update[]
   >;
 
-  async call(method: string, args?: APICallArgs): Promise<any> {
-    if (!this.token)
+  async call(method: string, args?: APICallArgs, abortController?: AbortController): Promise<any> {
+    if (!this.axios)
       throw new Error("Set bot token before calling API");
 
     const body =
@@ -97,16 +103,7 @@ export class TelegramAPI {
           }
         ).join("&");
 
-    const response = await axios.post<raw.Response>(
-      `https://api.telegram.org/bot${this.token}/${method}`, body,
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
-        }
-      }
-    );
-
-    const { data } = response;
+    const { data } = await this.axios.post<raw.Response>(method, body, { signal: abortController?.signal });
 
     if (!data.ok) {
       throw new APIError(

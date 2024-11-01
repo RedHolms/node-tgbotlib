@@ -1,6 +1,13 @@
 import type { BotBase } from "./bot";
 import type raw from "./rawTypes";
 
+type OptionalField<T, Opt> =
+  Opt extends boolean
+    ? Opt extends true
+      ? T
+      : undefined
+    : T | undefined;
+
 export enum ChatType {
   PRIVATE,
   GROUP,
@@ -155,12 +162,18 @@ export type MessageInit = string | {
   { replyOptions?: never; replyTo?: never}
 );
 
-export class Message {
+interface MessageConfig {
+  text?: boolean;
+  photo?: boolean;
+}
+
+export class Message<Cfg extends MessageConfig = {}> {
   declare protected _bot: BotBase;
   declare id: number;
+  declare text: OptionalField<string, Cfg["text"]>;
   declare chat: Chat;
   declare sender?: User;
-  declare photos: Photo[];
+  declare photo?: OptionalField<Photo, Cfg["photo"]>;
   declare mediaGroup?: MediaGroup;
 
   reply(init: MessageInitWithoutReply): Promise<Message> {
@@ -186,14 +199,21 @@ export class Message {
     const object = new Message();
     object._bot = bot;
     object.id = value.message_id;
+    object.text = value.text;
     object.chat = Chat.fromRaw(value.chat, bot);
-    object.photos = [];
+    if (value.from)
+      object.sender = User.fromRaw(value.from, bot);
+    if (value.photo)
+      object.photo = Photo.fromRaw(value.photo, bot);
     if (value.media_group_id)
       object.mediaGroup = bot.useMediaGroup(value.media_group_id, object);
     return object;
   }
 };
 
+export type MessageWithText = Message<{ text: true }>;
+export type MessageWithPhoto = Message<{ photo: true }>;
+export type TextOnlyMessage = Message<{ text: true, photo: false }>;
 
 export class User {
   declare protected _bot: BotBase;

@@ -1,3 +1,10 @@
+type OptionalField<T, Opt> =
+  Opt extends boolean
+    ? Opt extends true
+      ? T
+      : never
+    : T | undefined;
+
 export declare enum ChatType {
   PRIVATE,
   GROUP,
@@ -63,14 +70,25 @@ export type MessageInit = string | {
   { replyOptions?: never; replyTo?: never}
 );
 
-export interface Message {
+interface MessageConfig {
+  text?: boolean;
+  photo?: boolean;
+}
+
+export interface Message<Cfg extends MessageConfig = {}> {
   readonly id: number;
+  readonly text: OptionalField<string, Cfg["text"]>;
   readonly chat: Chat;
   readonly sender?: User;
+  readonly photo: OptionalField<Photo, Cfg["photo"]>;
   readonly mediaGroup?: MediaGroup;
 
   reply(init: MessageInitWithoutReply): Promise<Message>;
 }
+
+export type MessageWithText = Message<{ text: true }>;
+export type MessageWithPhoto = Message<{ photo: true }>;
+export type TextOnlyMessage = Message<{ text: true, photo: false }>;
 
 export interface User {
   readonly id: number;
@@ -124,15 +142,17 @@ export abstract class BotBase {
   getLogger(): LoggerLike;
 
   /// User callbacks
-  // There's not point to mark Promise<any>, but
+  // There's no point to mark Promise<any>, but
   //  that way it's more clear that these functions
   //  can be async
-  onStart():                                            any | Promise<any>;
-  onShutdown():                                         any | Promise<any>;
-  onMessage(message: Message):                          any | Promise<any>;
-  onCommand(command: string, message: Message):         any | Promise<any>;
-  onUnknownCommand(command: string, message: Message):  any | Promise<any>;
-  onTextMessage(text: string, message: Message):        any | Promise<any>;
+  onStart():                                                    any | Promise<any>;
+  onShutdown():                                                 any | Promise<any>;
+  onMessage(message: Message):                                  any | Promise<any>;
+  onCommand(command: string, message: MessageWithText):         any | Promise<any>;
+  onUnknownCommand(command: string, message: MessageWithText):  any | Promise<any>;
+  onMessageWithText(message: MessageWithText):                  any | Promise<any>;
+  onTextOnlyMessage(message: TextOnlyMessage):                  any | Promise<any>;
+  onMessageWithPhoto(message: MessageWithPhoto):                any | Promise<any>;
 }
 
 export function startTgBot(clazz: new () => BotBase): Promise<void>;

@@ -2,6 +2,7 @@
   "compilerOptions": {
     "lib": ["esnext"],
     "target": "ESNext",
+    "moduleResolution": "Bundler",
     "strict": true,
     "alwaysStrict": true,
     "allowSyntheticDefaultImports": true

@@ -4,7 +4,10 @@
   "description": "SDK to build Telegram bots",
   "license": "Free to use, edit and distribute",
   "version": "1.0.0",
-  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redholms/node-tgbotlib.git"
+  },
   "keywords": [
     "tg",
     "telegram"
@@ -34,8 +37,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
-    "@types/axios": "^0.9.36",
-    "@types/eslint__js": "^8.42.3",
     "@types/node": "^22.8.2",
     "esbuild": "^0.24.0",
     "eslint": "^9.13.0",

@@ -1,3 +1,4 @@
+// I haven't done all types, so let's keep it for now
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 
 declare namespace raw {

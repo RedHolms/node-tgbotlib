@@ -1,6 +1,6 @@
 import log4js from "log4js";
 import { startTgBot, BotBase } from "..";
-import type { LoggerLike, Message } from "..";
+import type { LoggerLike, Message, MessageWithPhoto } from "..";
 
 class TestBot extends BotBase {
   override getLogger(): LoggerLike {
@@ -31,11 +31,19 @@ class TestBot extends BotBase {
         text: "Hello!!"
       })
     });
+
+    this.registerCommand("shutdown", () => {
+      this.shutdown();
+    });
   }
 
   onMessage(message: Message) {
     message.reply(message.sender?.firstName || ":(");
   }
+
+  onMessageWithPhoto(message: MessageWithPhoto) {
+    
+  }
 };
 
-startTgBot(TestBot);
+startTgBot(TestBot).then(() => process.exit(0));

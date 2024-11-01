@@ -1,11 +1,14 @@
 import { readFile } from "node:fs/promises";
 
 import { TelegramAPI } from "./api";
-import { MediaGroup, Message } from "./types";
+import { MediaGroup, Message, MessageWithPhoto, MessageWithText, TextOnlyMessage } from "./types";
 import { isPathExists } from "./utils";
 import type raw from "./rawTypes";
 
+type FunctionLike = (...args: any[]) => any;
 type CommandCallback = (message: Message) => any | Promise<any>;
+
+type BotBaseFunctions = { [K2 in keyof BotBase]: BotBase[K2] extends FunctionLike ? K2 : never }[keyof BotBase];
 
 interface LoggerLike {
   debug(message: any, ...args: any[]): any;
@@ -33,7 +36,8 @@ export abstract class BotBase {
   
   declare private commands: Map<string, CommandCallback>;
   declare private mediaGroups: Map<string, MediaGroup>;
-  
+
+  declare private longpollAbortController: AbortController;
   declare private updateOffset?: number;
   declare private updatesHandlers: UpdatesHandlersMap;
 
@@ -53,6 +57,7 @@ export abstract class BotBase {
     this.commands = new Map();
     this.mediaGroups = new Map();
 
+    this.longpollAbortController = new AbortController();
     this.updatesHandlers = new Map<raw.UpdateTypes, (object: any) => Promise<void>>([
       [ "message", this.processMessageUpdate.bind(this) ]
     ]);
@@ -66,42 +71,54 @@ export abstract class BotBase {
 
     this.log.info("Starting...");
 
-    this.log.debug("Calling user start");
-    await this.onStart();
-
-    this.log.debug("Starting longpoll cycle");
+    await this.callback("onStart");
     await this.longpollCycle();
+    await this.callback("onShutdown");
+
+    this.log.info("Bot exited");
+  }
+
+  private async callback<K extends `on${string}` & BotBaseFunctions>(name: K, ...args: Parameters<BotBase[K]>): Promise<void> {
+    const method = this[name] as (...args: Parameters<BotBase[K]>) => ReturnType<BotBase[K]>;
+
+    try {
+      await method.call(this, ...args);
+    }
+    catch(error: any) {
+      this.log.error(`Error in callback ${name}`);
+      this.log.error(error);
+    }
   }
 
   private async processMessageUpdate(rawMessage: raw.Message) {
     const message = Message.fromRaw(rawMessage, this);
     
     const promises = [];
-    promises.push(this.onMessage(message));
+    promises.push(this.callback("onMessage", message));
     
-    let haveCommands = false;
+    if (rawMessage.text)
+      promises.push(this.callback("onMessageWithText", message));
+
+    if (rawMessage.photo)
+      promises.push(this.callback("onMessageWithPhoto", message));
+
     if (rawMessage.entities) {
       for (const entity of rawMessage.entities) {
         if (entity.type === "bot_command") {
-          haveCommands = true;
-          
           // Here we're sure that text must be a string
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           const command = rawMessage.text!.slice(entity.offset + 1, entity.offset + entity.length);
 
-          promises.push(this.onCommand(command, message));
+          promises.push(this.callback("onCommand", command, message));
 
           const callback = this.commands.get(command);
           if (callback)
             promises.push(callback(message));
           else
-            promises.push(this.onUnknownCommand(command, message));
+            promises.push(this.callback("onUnknownCommand", command, message));
         }
       }
     }
-
-    if (!haveCommands && rawMessage.text)
-      promises.push(this.onTextMessage(rawMessage.text, message));
 
     await Promise.all(promises);
   }
@@ -125,7 +142,7 @@ export abstract class BotBase {
   private async longpollCycle() {
     this.log.info("Started");
 
-    while (true) {
+    while (!this.longpollAbortController.signal.aborted) {
       const updates = await this.api.call("getUpdates", {
         offset: this.updateOffset as any,
         timeout: 40
@@ -207,7 +224,7 @@ export abstract class BotBase {
   }
 
   protected shutdown() {
-    return;
+    this.longpollAbortController.abort();
   }
 
   /// User defined logger
@@ -225,10 +242,12 @@ export abstract class BotBase {
   /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function */
 
   /// User callbacks
-  onStart():                                            any | Promise<any> {}
-  onShutdown():                                         any | Promise<any> {}
-  onMessage(message: Message):                          any | Promise<any> {}
-  onCommand(command: string, message: Message):         any | Promise<any> {}
-  onUnknownCommand(command: string, message: Message):  any | Promise<any> {}
-  onTextMessage(text: string, message: Message):        any | Promise<any> {}
+  onStart():                                                    any | Promise<any> {}
+  onShutdown():                                                 any | Promise<any> {}
+  onMessage(message: Message):                                  any | Promise<any> {}
+  onCommand(command: string, message: MessageWithText):         any | Promise<any> {}
+  onUnknownCommand(command: string, message: MessageWithText):  any | Promise<any> {}
+  onMessageWithText(message: MessageWithText):                  any | Promise<any> {}
+  onTextOnlyMessage(message: TextOnlyMessage):                  any | Promise<any> {}
+  onMessageWithPhoto(message: MessageWithPhoto):                any | Promise<any> {}
 };
