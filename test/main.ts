@@ -1,6 +1,6 @@
 import log4js from "log4js";
-import { startTgBot, BotBase } from "tgbotlib";
-import type { LoggerLike, Message } from "tgbotlib";
+import { startTgBot, BotBase } from "..";
+import type { LoggerLike, Message } from "..";
 
 class TestBot extends BotBase {
   override getLogger(): LoggerLike {
@@ -34,11 +34,7 @@ class TestBot extends BotBase {
   }
 
   onMessage(message: Message) {
-    // this.log.info(message);
-  }
-
-  onUnknownCommand(command: string, message: Message) {
-    
+    message.reply(message.sender?.firstName || ":(");
   }
 };
 

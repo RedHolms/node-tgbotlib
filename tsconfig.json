@@ -4,8 +4,6 @@
     "target": "ESNext",
     "strict": true,
     "alwaysStrict": true,
-    "strictNullChecks": true,
-    "noImplicitAny": true,
     "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*.ts"],

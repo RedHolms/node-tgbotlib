@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { TelegramAPI } from "./api";
 import { MediaGroup, Message } from "./types";
 import { isPathExists } from "./utils";
-import type { raw } from "./rawTypes";
+import type raw from "./rawTypes";
 
 type CommandCallback = (message: Message) => any | Promise<any>;
 
@@ -84,7 +84,9 @@ export abstract class BotBase {
       for (const entity of rawMessage.entities) {
         if (entity.type === "bot_command") {
           haveCommands = true;
-
+          
+          // Here we're sure that text must be a string
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           const command = rawMessage.text!.slice(entity.offset + 1, entity.offset + entity.length);
 
           promises.push(this.onCommand(command, message));
@@ -105,11 +107,9 @@ export abstract class BotBase {
   }
 
   private async processUpdates(update: raw.Update) {
-    await Promise.all((Object.keys(update) as Array<keyof raw.Update>).map((key) => {
+    await Promise.all((Object.keys(update) as (keyof raw.Update)[]).map((key) => {
       if (key === "update_id")
         return Promise.resolve();
-
-      this.log.info(key, update[key]!);
 
       const handler = this.updatesHandlers.get(key);
 
@@ -118,7 +118,7 @@ export abstract class BotBase {
         return Promise.resolve();
       }
 
-      return handler(update[key]!);
+      return handler(update[key]);
     }));
   }
 
@@ -193,6 +193,8 @@ export abstract class BotBase {
     this.botInfo = {
       id: me.id,
       firstName: me.first_name,
+      // Bots always have a name
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       username: me.username!,
       canJoinGroups: me.can_join_groups,
       canReadAllGroupMessages: me.can_read_all_group_messages,
@@ -205,12 +207,12 @@ export abstract class BotBase {
   }
 
   protected shutdown() {
-
+    return;
   }
 
   /// User defined logger
   getLogger(): LoggerLike {
-    const empty = () => {};
+    const empty = () => { return; };
     return {
       debug: empty,
       info: empty,
@@ -220,6 +222,8 @@ export abstract class BotBase {
     };
   }
   
+  /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function */
+
   /// User callbacks
   onStart():                                            any | Promise<any> {}
   onShutdown():                                         any | Promise<any> {}

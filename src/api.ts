@@ -1,6 +1,6 @@
 import axios from "axios";
 
-import type { raw } from "./rawTypes";
+import type raw from "./rawTypes";
 
 export interface APIErrorParameters {
   migrateToChatId?: number;

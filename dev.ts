@@ -14,7 +14,7 @@ function shutdownProcess() {
 
 function startProcess() {
   testProcess = exec("npx tsx ./test/main.ts");
-  testProcess.stdout!.pipe(process.stdout);
+  testProcess.stdout?.pipe(process.stdout);
 }
 
 esbuild.context({

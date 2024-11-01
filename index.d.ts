@@ -47,20 +47,21 @@ export interface MediaGroup {
   readonly messages: Message[];
 }
 
-export type MessageInitWithoutReply = {
+export interface ReplyOptions {
+  __dummy?: string;
+}
+
+export type MessageInitWithoutReply = string | {
   text: string;
 };
 
-export type MessageInit = MessageInitWithoutReply & ({
-  replyTo: undefined;
-  replyOptions: undefined;
-} | {
-  replyTo: Message;
-  replyOptions: undefined;
-} | {
-  replyTo: undefined;
-  replyOptions: {};
-});
+export type MessageInit = string | {
+  text: string;
+} & (
+  { replyTo: Message; replyOptions?: never } |
+  { replyOptions: ReplyOptions; replyTo?: never } |
+  { replyOptions?: never; replyTo?: never}
+);
 
 export interface Message {
   readonly id: number;
