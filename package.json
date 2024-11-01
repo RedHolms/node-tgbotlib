@@ -1,0 +1,45 @@
+{
+  "name": "tgbotlib",
+  "author": "RedHolms",
+  "description": "SDK to build Telegram bots",
+  "license": "Free to use, edit and distribute",
+  "version": "1.0.0",
+  "type": "module",
+  "keywords": [
+    "tg",
+    "telegram"
+  ],
+  "main": "dist/index.js",
+  "types": "index.d.ts",
+  "typings": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": {
+        "default": "./index.d.ts"
+      },
+      "default": {
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "dev": "tsx ./dev.ts",
+    "build": "tsx ./build.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "@types/axios": "^0.9.36",
+    "@types/node": "^22.8.2",
+    "esbuild": "^0.24.0",
+    "log4js": "^6.9.1",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "files": [
+    "dist"
+  ]
+}
