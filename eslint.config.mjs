@@ -9,6 +9,7 @@ export default tseslint.config(
   ...tseslint.configs.stylistic,
   {
     rules: {
+      "semi": ["error", "always"],
       "@typescript-eslint/no-namespace": "off",
       "@typescript-eslint/no-explicit-any": "off", // "any" can be really usefull
       "@typescript-eslint/consistent-indexed-object-style": ["error", "index-signature"]

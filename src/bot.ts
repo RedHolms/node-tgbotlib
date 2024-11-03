@@ -16,15 +16,15 @@ interface LoggerLike {
   warn(message: any, ...args: any[]): any;
   error(message: any, ...args: any[]): any;
   fatal(message: any, ...args: any[]): any;
-};
+}
 
 interface LibConfig {
   botToken: string;
-};
+}
 
 interface UpdatesHandlersMap {
   get<K extends raw.UpdateTypes>(key: K): ((object: raw.Update[K]) => Promise<void>) | undefined;
-};
+}
 
 export abstract class BotBase {
   declare readonly api: TelegramAPI;
@@ -250,4 +250,4 @@ export abstract class BotBase {
   onMessageWithText(message: MessageWithText):                  any | Promise<any> {}
   onTextOnlyMessage(message: TextOnlyMessage):                  any | Promise<any> {}
   onMessageWithPhoto(message: MessageWithPhoto):                any | Promise<any> {}
-};
+}

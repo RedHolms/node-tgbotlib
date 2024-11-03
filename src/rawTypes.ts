@@ -128,8 +128,14 @@ declare namespace raw {
     reply_markup?: InlineKeyboardMarkup;
   }
   export interface MessageId {}
-  export interface InaccessibleMessage {}
-  export interface MaybeInaccessibleMessage {}
+  export interface InaccessibleMessage {
+    chat: Chat;
+    message_id: number;
+    date: 0;
+  }
+  export type MaybeInaccessibleMessage =
+    Message |
+    InaccessibleMessage;
   export type MessageEntityType =
     "mention" |
     "hashtag" |
@@ -266,17 +272,71 @@ declare namespace raw {
     file_size?: number;
     file_path?: string;
   }
-  export interface WebAppInfo {}
-  export interface ReplyKeyboardMarkup {}
-  export interface KeyboardButton {}
-  export interface KeyboardButtonRequestUsers {}
-  export interface KeyboardButtonRequestChat {}
-  export interface KeyboardButtonPollType {}
+  export interface WebAppInfo {
+    url: string;
+  }
+  export interface ReplyKeyboardMarkup {
+    keyboard: KeyboardButton[][];
+    is_persistent?: boolean;
+    resize_keyboard?: boolean;
+    one_time_keyboard?: boolean;
+    input_field_placeholder?: string;
+    selective?: boolean;
+  }
+  export interface KeyboardButton {
+    text: string;
+    request_users?: KeyboardButtonRequestUsers;
+    request_chat?: KeyboardButtonRequestChat;
+    request_contact?: boolean;
+    request_location?: boolean;
+    request_poll?: KeyboardButtonPollType;
+    web_app?: WebAppInfo;
+  }
+  export interface KeyboardButtonRequestUsers {
+    request_id: number;
+    user_is_bot?: boolean;
+    user_is_premium?: boolean;
+    max_quantity?: number;
+    request_name?: boolean;
+    request_username?: boolean;
+    request_photo?: boolean;
+  }
+  export interface KeyboardButtonRequestChat {
+    request_id: number;
+    chat_is_channel: boolean;
+    chat_is_forum?: boolean;
+    chat_has_username?: boolean;
+    chat_is_created?: boolean;
+    user_administrator_rights?: ChatAdministratorRights;
+    bot_administrator_rights?: ChatAdministratorRights;
+    bot_is_member?: boolean;
+    request_title?: boolean;
+    request_username?: boolean;
+    request_photo?: boolean;
+  }
+  export interface KeyboardButtonPollType {
+    type?: "quiz" | "regular";
+  }
   export interface ReplyKeyboardRemove {}
-  export interface InlineKeyboardMarkup {}
-  export interface InlineKeyboardButton {}
+  export interface InlineKeyboardMarkup {
+    inline_keyboard: InlineKeyboardButton[][];
+  }
+  export interface InlineKeyboardButton {
+    text: string;
+    url?: string;
+    callback_data?: string;
+    web_app?: WebAppInfo;
+    login_url?: LoginUrl;
+    switch_inline_query?: string;
+    switch_inline_query_current_chat?: string;
+    switch_inline_query_chosen_chat?: SwitchInlineQueryChosenChat;
+    copy_text?: CopyTextButton;
+    callback_game?: CallbackGame;
+    pay?: boolean;
+  }
   export interface LoginUrl {}
   export interface SwitchInlineQueryChosenChat {}
+  export interface CopyTextButton {}
   export interface CallbackQuery {}
   export interface ForceReply {}
   export interface ChatPhoto {}

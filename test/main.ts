@@ -1,5 +1,5 @@
 import log4js from "log4js";
-import { startTgBot, BotBase } from "..";
+import { startTgBot, BotBase, KeyboardBuilder } from "..";
 import type { LoggerLike, Message, MessageWithPhoto } from "..";
 
 class TestBot extends BotBase {
@@ -28,8 +28,36 @@ class TestBot extends BotBase {
   onStart() {
     this.registerCommand("start", (message) => {
       message.reply({
-        text: "Hello!!"
-      })
+        text: "Hello!!",
+        keyboard: new KeyboardBuilder()
+          .inline()
+          .row()
+          .button({
+            text: "Hello, World!"
+          })
+          .button({
+            text: "Hello, World!2"
+          })
+          .button({
+            text: "Hello, World!3"
+          })
+          .button({
+            text: "Hello, World!4"
+          })
+          .button({
+            text: "Hello, World!5"
+          })
+          .button({
+            text: "Hello, World!5"
+          })
+          .button({
+            text: "Hello, World!5"
+          })
+          .button({
+            text: "Hello, World!5"
+          })
+          .build()
+      });
     });
 
     this.registerCommand("shutdown", () => {
@@ -38,12 +66,14 @@ class TestBot extends BotBase {
   }
 
   onMessage(message: Message) {
-    message.reply(message.sender?.firstName || ":(");
+    message.reply({
+      text: message.sender?.firstName || ":(",
+    });
   }
 
   onMessageWithPhoto(message: MessageWithPhoto) {
     
   }
-};
+}
 
 startTgBot(TestBot).then(() => process.exit(0));

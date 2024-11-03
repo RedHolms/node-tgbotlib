@@ -1,4 +1,5 @@
 import type { BotBase } from "./bot";
+import { InlineKeyboard, Keyboard, KeyboardType } from "./keyboards";
 import type raw from "./rawTypes";
 
 type OptionalField<T, Opt> =
@@ -14,7 +15,7 @@ export enum ChatType {
   SUPERGROUP,
   CHANNEL,
   UNKNOWN
-};
+}
 
 export abstract class Chat {
   declare protected _bot: BotBase;
@@ -23,10 +24,10 @@ export abstract class Chat {
   abstract getType(): ChatType;
 
   async send(init: MessageInit): Promise<Message> {
-    let replyParameters: raw.ReplyParameters | undefined;
-
     if (typeof init === "string")
       init = { text: init };
+    
+    let replyParameters: raw.ReplyParameters | undefined;
 
     if (init.replyTo) {
       const message = init.replyTo;
@@ -39,14 +40,41 @@ export abstract class Chat {
         replyParameters.chat_id = message.chat.id;
     }
 
+    let replyMarkup: raw.InlineKeyboardMarkup | raw.ReplyKeyboardMarkup | undefined;
+
+    if (init.keyboard) {
+      switch (init.keyboard.getType()) {
+        case KeyboardType.INLINE: {
+          const keyboard = init.keyboard as InlineKeyboard;
+          const buttons: raw.InlineKeyboardButton[][] = [];
+
+          for (const row of keyboard.buttons) {
+            const rawRow: raw.InlineKeyboardButton[] = [];
+            for (const button of row) {
+              rawRow.push({
+                text: button.text,
+                callback_data: "a"
+              });
+            }
+            buttons.push(rawRow);
+          }
+
+          replyMarkup = {
+            inline_keyboard: buttons
+          };
+        } break;
+      }
+    }
+
     return Message.fromRaw(
       await this._bot.api.call("sendMessage", {
         chat_id: this.id,
         text: init.text,
-        reply_parameters: replyParameters
+        reply_parameters: replyParameters,
+        reply_markup: replyMarkup
       }),
       this._bot
-    )
+    );
   }
 
   static fromRaw(value: raw.Chat, bot: BotBase): Chat {
@@ -75,7 +103,7 @@ export abstract class Chat {
       }
     }
   }
-};
+}
 
 export class PrivateChat extends Chat {
   declare firstName: string;
@@ -83,11 +111,11 @@ export class PrivateChat extends Chat {
   declare username?: string;
 
   getType() { return ChatType.PRIVATE; }
-};
+}
 
 export class UnknownChat extends Chat {
   getType() { return ChatType.UNKNOWN; }
-};
+}
 
 export class File {
   declare protected _bot: BotBase;
@@ -105,7 +133,7 @@ export class File {
     object.path = value.file_path;
     return object;
   }
-};
+}
 
 export class PhotoSize {
   declare protected _bot: BotBase;
@@ -121,7 +149,7 @@ export class PhotoSize {
     object.height = value.height;
     return object;
   }
-};
+}
 
 export class Photo {
   declare protected _bot: BotBase;
@@ -139,35 +167,37 @@ export class Photo {
     
     return object;
   }
-};
+}
 
 export class MediaGroup {
   declare id: string;
   declare messages: Message[];
-};
+}
 
 export interface ReplyOptions {
   __dummy?: string;
-};
+}
 
 export type MessageInitWithoutReply = string | {
   text: string;
-};
+  keyboard?: Keyboard;
+}
 
-export type MessageInit = string | {
+export type MessageInit = string | ({
   text: string;
+  keyboard?: Keyboard;
 } & (
   { replyTo: Message; replyOptions?: never } |
   { replyOptions: ReplyOptions; replyTo?: never } |
   { replyOptions?: never; replyTo?: never}
-);
+));
 
 interface MessageConfig {
   text?: boolean;
   photo?: boolean;
 }
 
-export class Message<Cfg extends MessageConfig = {}> {
+export class Message<Cfg extends MessageConfig = object> {
   declare protected _bot: BotBase;
   declare id: number;
   declare text: OptionalField<string, Cfg["text"]>;
@@ -209,7 +239,7 @@ export class Message<Cfg extends MessageConfig = {}> {
       object.mediaGroup = bot.useMediaGroup(value.media_group_id, object);
     return object;
   }
-};
+}
 
 export type MessageWithText = Message<{ text: true }>;
 export type MessageWithPhoto = Message<{ photo: true }>;
@@ -248,4 +278,4 @@ export class User {
     object.isAddedToAttachmentMenu = value.added_to_attachment_menu || false;
     return object;
   }
-};
+}

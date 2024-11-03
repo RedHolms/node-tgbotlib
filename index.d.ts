@@ -60,22 +60,24 @@ export interface ReplyOptions {
 
 export type MessageInitWithoutReply = string | {
   text: string;
+  keyboard?: Keyboard;
 };
 
-export type MessageInit = string | {
+export type MessageInit = string | ({
   text: string;
+  keyboard?: Keyboard;
 } & (
   { replyTo: Message; replyOptions?: never } |
   { replyOptions: ReplyOptions; replyTo?: never } |
-  { replyOptions?: never; replyTo?: never}
-);
+  { replyOptions?: never; replyTo?: never }
+));
 
 interface MessageConfig {
   text?: boolean;
   photo?: boolean;
 }
 
-export interface Message<Cfg extends MessageConfig = {}> {
+export interface Message<Cfg extends MessageConfig = object> {
   readonly id: number;
   readonly text: OptionalField<string, Cfg["text"]>;
   readonly chat: Chat;
@@ -112,6 +114,125 @@ export interface LoggerLike {
   warn(message: any, ...args: any[]): any;
   error(message: any, ...args: any[]): any;
   fatal(message: any, ...args: any[]): any;
+}
+
+export enum KeyboardType {
+  NORMAL,
+  INLINE
+}
+
+export abstract class Keyboard {
+  abstract getType(): KeyboardType;
+}
+
+export class NormalKeyboard {
+  getType(): KeyboardType.NORMAL;
+}
+
+export class InlineKeyboard {
+  getType(): KeyboardType.INLINE;
+}
+
+interface NormalKeyboardButtonInit {
+
+}
+
+type InlineKeyboardButtonInit = {
+  text: string;
+} & (
+  {
+    url: string;
+    callback?: never;
+    copyText?: never;
+  } |
+  {
+    url?: never;
+    callback: (user: User) => any | Promise<any>;
+    copyText?: never;
+  } |
+  {
+    url?: never;
+    callback?: never;
+    copyText: string;
+  } |
+  {
+    url?: never;
+    callback?: never;
+    copyText?: never;
+  }
+);
+
+// Only for KeyboadrBuilder
+// Capped to 8 becuase we can't to more than 8 buttons in a row
+type Increment<N> =
+  N extends 0 ? 1 :
+  N extends 1 ? 2 :
+  N extends 2 ? 3 :
+  N extends 3 ? 4 :
+  N extends 4 ? 5 :
+  N extends 5 ? 6 :
+  N extends 6 ? 7 :
+  N extends 7 ? 8 : never;
+
+interface KeyboardBuilderConfig {
+  inline: boolean;
+  hasRow?: boolean;
+  buttonsInRow: number | never;
+}
+
+interface KeyboardBuilderBuildable<Cfg extends KeyboardBuilderConfig> {
+  build(): Cfg["inline"] extends true ? InlineKeyboard : NormalKeyboard;
+}
+
+interface KeyboardBuilderRows<Cfg extends KeyboardBuilderConfig> {
+  row(): KeyboardBuilderImpl<{ inline: Cfg["inline"], hasRow: true, buttonsInRow: 0 }>;
+}
+
+interface KeyboardBuilderNormal<Cfg extends KeyboardBuilderConfig> {
+  button(): KeyboardBuilderImpl<{
+    inline: Cfg["inline"],
+    hasRow: Cfg["hasRow"],
+    buttonsInRow: Increment<Cfg["buttonsInRow"]>
+  }>;
+}
+
+interface KeyboardBuilderInline<Cfg extends KeyboardBuilderConfig> {
+  button(init: InlineKeyboardButtonInit):
+    KeyboardBuilderImpl<{
+      inline: Cfg["inline"],
+      hasRow: Cfg["hasRow"],
+      buttonsInRow: Increment<Cfg["buttonsInRow"]>
+    }>;
+}
+
+// Seems scart but works REALLY fucking well. I wanna fall in love with TypeScript for that
+// Compile-type verifies keyboard to be valid (no empty rows and max 8 buttons in a row)
+type KeyboardBuilderImpl<Cfg extends KeyboardBuilderConfig> =
+  (Cfg["hasRow"] extends true
+    ? Cfg["buttonsInRow"] extends 0
+        ? {}
+        : KeyboardBuilderBuildable<Cfg>
+    : {}
+  ) &
+  (Cfg["hasRow"] extends true
+    ? Cfg["buttonsInRow"] extends 0
+      ? {}
+      : KeyboardBuilderRows<Cfg>
+    : KeyboardBuilderRows<Cfg>
+  ) &
+  (Cfg["hasRow"] extends true
+    ? Cfg["buttonsInRow"] extends 8
+      ? {}
+      : (Cfg["inline"] extends true
+        ? KeyboardBuilderInline<Cfg>
+        : KeyboardBuilderNormal<Cfg>
+      )
+    : {}
+  );
+
+export class KeyboardBuilder {
+  normal(): KeyboardBuilderImpl<{ inline: false, buttonsInRow: 0 }>;
+  inline(): KeyboardBuilderImpl<{ inline: true, buttonsInRow: 0 }>;
 }
 
 export abstract class BotBase {

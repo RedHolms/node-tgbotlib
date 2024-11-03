@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import type { AxiosInstance } from "axios";
 
 import type raw from "./rawTypes";
@@ -6,27 +6,29 @@ import type raw from "./rawTypes";
 export interface APIErrorParameters {
   migrateToChatId?: number;
   retryAfter?: number;
-};
+}
 
 export class APIError extends Error {
   declare readonly calledMethod: string;
+  declare readonly calledArgs?: APICallArgs;
   declare readonly code: number;
   declare readonly description: string;
   declare readonly parameters: APIErrorParameters;
 
-  constructor(calledMethod: string, code: number, description: string, parameters: APIErrorParameters) {
+  constructor(calledMethod: string, calledArgs: APICallArgs | undefined, code: number, description: string, parameters: APIErrorParameters) {
     super(`TelegramAPI error when calling method ${calledMethod} (code ${code}): ${description}`);
 
     this.calledMethod = calledMethod;
+    this.calledArgs = calledArgs;
     this.code = code;
     this.description = description;
     this.parameters = parameters;
   }
-};
+}
 
 interface APICallArgs {
   [name: string]: string | number | boolean | object;
-};
+}
 
 export class TelegramAPI {
   declare private axios?: AxiosInstance;
@@ -103,11 +105,15 @@ export class TelegramAPI {
           }
         ).join("&");
 
-    const { data } = await this.axios.post<raw.Response>(method, body, { signal: abortController?.signal });
+    const { data } = await this.axios.post<raw.Response>(method, body, {
+      signal: abortController?.signal,
+      validateStatus: () => true
+    });
 
     if (!data.ok) {
       throw new APIError(
         method,
+        args,
         data.error_code,
         data.description || "Unknown error",
         {
@@ -119,4 +125,4 @@ export class TelegramAPI {
 
     return data.result;
   }
-};
+}
