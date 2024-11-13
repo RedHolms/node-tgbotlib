@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 
 import { TelegramAPI } from "./api";
-import { MediaGroup, Message, MessageWithPhoto, MessageWithText, TextOnlyMessage } from "./types";
+import { MediaGroup, Message, MessageWithPhoto, MessageWithText, TextOnlyMessage, User } from "./types";
+import { InlineKeyboard, InlineKeyboardButtonActionType, InlineKeyboardButtonCallbackAction, InlineKeyboardButtonCopyTextAction, InlineKeyboardButtonUrlAction, Keyboard, KeyboardType } from "./keyboards";
 import { isPathExists } from "./utils";
 import type raw from "./rawTypes";
 
@@ -36,6 +37,8 @@ export abstract class BotBase {
   
   declare private commands: Map<string, CommandCallback>;
   declare private mediaGroups: Map<string, MediaGroup>;
+  declare private inlineCalbacks: Map<string, (user: User) => any | Promise<any>>;
+  declare private inlineCalbacksKeys: Map<(user: User) => any | Promise<any>, string>;
 
   declare private longpollAbortController: AbortController;
   declare private updateOffset?: number;
@@ -56,10 +59,12 @@ export abstract class BotBase {
     this.api = new TelegramAPI();
     this.commands = new Map();
     this.mediaGroups = new Map();
+    this.inlineCalbacks = new Map();
 
     this.longpollAbortController = new AbortController();
     this.updatesHandlers = new Map<raw.UpdateTypes, (object: any) => Promise<void>>([
-      [ "message", this.processMessageUpdate.bind(this) ]
+      [ "message", this.processMessageUpdate.bind(this) ],
+      [ "callback_query", this.processCallbackQuery.bind(this) ]
     ]);
   }
 
@@ -121,6 +126,11 @@ export abstract class BotBase {
     }
 
     await Promise.all(promises);
+  }
+
+  private async processCallbackQuery(callbackQuery: raw.CallbackQuery) {
+    if (!callbackQuery.data)
+      return;
   }
 
   private async processUpdates(update: raw.Update) {
@@ -190,6 +200,82 @@ export abstract class BotBase {
     }
 
     return group;
+  }
+
+  private generateUniqueKey(): string {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-0123456789";
+    const charactersLength = characters.length;
+  
+    let result = "";
+    let counter = 0;
+  
+    while (counter < 64) {
+      result += characters.charAt(Math.floor(Math.random() * charactersLength));
+      ++counter;
+    }
+  
+    return result;
+  }
+
+  private hashInlineCallback(callback: (user: User) => any | Promise<any>): string {
+    if (this.inlineCalbacksKeys.has(callback))
+      return this.inlineCalbacksKeys.get(callback)!;
+
+    let key;
+    do {
+      key = this.generateUniqueKey();
+    }
+    while (this.inlineCalbacks.has(key));
+
+    this.inlineCalbacks.set(key, callback);
+    this.inlineCalbacksKeys.set(callback, key);
+
+    return key;
+  }
+
+  processKeyboard(keyboard: Keyboard): raw.InlineKeyboardMarkup | raw.ReplyKeyboardMarkup {
+    switch (keyboard.getType()) {
+      case KeyboardType.INLINE: {
+        const inlineKeyboard = keyboard as InlineKeyboard;
+        const buttons: raw.InlineKeyboardButton[][] = [];
+
+        for (const row of inlineKeyboard.buttons) {
+          const rawRow: raw.InlineKeyboardButton[] = [];
+          for (const button of row) {
+            const action = button.action;
+            
+            const rawButton: raw.InlineKeyboardButton = {
+              text: button.text
+            };
+
+            switch (action.getType()) {
+              case InlineKeyboardButtonActionType.URL:
+                rawButton.url = (action as InlineKeyboardButtonUrlAction).url;
+                break;
+              case InlineKeyboardButtonActionType.COPY_TEXT:
+                rawButton.url = (action as InlineKeyboardButtonCopyTextAction).text;
+                break;
+              case InlineKeyboardButtonActionType.CALLBACK:
+                const { callback } = (action as InlineKeyboardButtonCallbackAction);
+                const key = this.hashInlineCallback(callback);
+
+                rawButton.callback_data = `0;${key}`;
+                break;
+            }
+
+            rawRow.push(rawButton);
+          }
+
+          buttons.push(rawRow);
+        }
+
+        return {
+          inline_keyboard: buttons
+        };
+      }
+      default:
+        throw new Error("invalid keyboard type");
+    }
   }
   
   /// User API

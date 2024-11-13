@@ -33,28 +33,8 @@ class TestBot extends BotBase {
           .inline()
           .row()
           .button({
-            text: "Hello, World!"
-          })
-          .button({
-            text: "Hello, World!2"
-          })
-          .button({
-            text: "Hello, World!3"
-          })
-          .button({
-            text: "Hello, World!4"
-          })
-          .button({
-            text: "Hello, World!5"
-          })
-          .button({
-            text: "Hello, World!5"
-          })
-          .button({
-            text: "Hello, World!5"
-          })
-          .button({
-            text: "Hello, World!5"
+            text: "Hello, World!",
+            url: "https://google.com"
           })
           .build()
       });

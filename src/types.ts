@@ -42,29 +42,8 @@ export abstract class Chat {
 
     let replyMarkup: raw.InlineKeyboardMarkup | raw.ReplyKeyboardMarkup | undefined;
 
-    if (init.keyboard) {
-      switch (init.keyboard.getType()) {
-        case KeyboardType.INLINE: {
-          const keyboard = init.keyboard as InlineKeyboard;
-          const buttons: raw.InlineKeyboardButton[][] = [];
-
-          for (const row of keyboard.buttons) {
-            const rawRow: raw.InlineKeyboardButton[] = [];
-            for (const button of row) {
-              rawRow.push({
-                text: button.text,
-                callback_data: "a"
-              });
-            }
-            buttons.push(rawRow);
-          }
-
-          replyMarkup = {
-            inline_keyboard: buttons
-          };
-        } break;
-      }
-    }
+    if (init.keyboard)
+      replyMarkup = this._bot.processKeyboard(init.keyboard);
 
     return Message.fromRaw(
       await this._bot.api.call("sendMessage", {

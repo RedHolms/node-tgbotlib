@@ -337,7 +337,15 @@ declare namespace raw {
   export interface LoginUrl {}
   export interface SwitchInlineQueryChosenChat {}
   export interface CopyTextButton {}
-  export interface CallbackQuery {}
+  export interface CallbackQuery {
+    id: string;
+    from: User;
+    message?: MaybeInaccessibleMessage;
+    inline_message_id?: string;
+    chat_instance: string;
+    data?: string;
+    game_short_name?: string;
+  }
   export interface ForceReply {}
   export interface ChatPhoto {}
   export interface ChatInviteLink {}

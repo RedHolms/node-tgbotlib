@@ -19,37 +19,37 @@ class NormalKeyboardBuilder {
 
 }
 
-enum InlineKeyboardButtonActionType {
+export enum InlineKeyboardButtonActionType {
   URL,
   CALLBACK,
   COPY_TEXT
 }
 
-abstract class InlineKeyboardButtonAction {
+export abstract class InlineKeyboardButtonAction {
   abstract getType(): InlineKeyboardButtonActionType;
 }
 
-class InlineKeyboardButtonUrlAction extends InlineKeyboardButtonAction {
+export class InlineKeyboardButtonUrlAction extends InlineKeyboardButtonAction {
   declare url: string;
 
   getType() { return InlineKeyboardButtonActionType.URL; }
 }
 
-class InlineKeyboardButtonCallbackAction extends InlineKeyboardButtonAction {
+export class InlineKeyboardButtonCallbackAction extends InlineKeyboardButtonAction {
   declare callback: (user: User) => any | Promise<any>;
 
   getType() { return InlineKeyboardButtonActionType.URL; }
 }
 
-class InlineKeyboardButtonCopyTextAction extends InlineKeyboardButtonAction {
+export class InlineKeyboardButtonCopyTextAction extends InlineKeyboardButtonAction {
   declare text: string;
 
   getType() { return InlineKeyboardButtonActionType.COPY_TEXT; }
 }
 
-class InlineKeyboardButton {
+export class InlineKeyboardButton {
   declare text: string;
-  declare action?: InlineKeyboardButtonAction;
+  declare action: InlineKeyboardButtonAction;
 }
 
 export class InlineKeyboard extends Keyboard {
@@ -80,11 +80,6 @@ type InlineKeyboardButtonInit = {
     url?: never;
     callback?: never;
     copyText: string;
-  } |
-  {
-    url?: never;
-    callback?: never;
-    copyText?: never;
   }
 );
 
@@ -129,6 +124,9 @@ class InlineKeyboardBuilder {
     else if (init.copyText) {
       action = new InlineKeyboardButtonCopyTextAction();
       action.text = init.copyText;
+    }
+    else {
+      throw new Error("no inline button action");
     }
     
     button.action = action;
