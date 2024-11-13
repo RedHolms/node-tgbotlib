@@ -1,8 +1,8 @@
-import { BotBase } from "./bot";
-import { KeyboardBuilder } from "./keyboards";
+import { TelegramBot } from "./control/bot";
+import { KeyboardBuilder } from "./types/keyboards";
 
-async function startTgBot(clazz: new () => BotBase) {
+async function startTgBot(clazz: new () => TelegramBot) {
   await (new clazz()).start();
 }
 
-export { startTgBot, BotBase, KeyboardBuilder };
+export { startTgBot, TelegramBot as BotBase, KeyboardBuilder };

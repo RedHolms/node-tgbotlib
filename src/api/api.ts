@@ -1,7 +1,7 @@
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import type { AxiosInstance } from "axios";
 
-import type raw from "./rawTypes";
+import type TG from "./types";
 
 export interface APIErrorParameters {
   migrateToChatId?: number;
@@ -50,7 +50,7 @@ export class TelegramAPI {
   call(
     method: "getMe"
   ): Promise<
-    raw.User & {
+    TG.User & {
       can_join_groups: boolean;
       can_read_all_group_messages: boolean;
       supports_inline_queries: boolean;
@@ -65,17 +65,17 @@ export class TelegramAPI {
       text: string,
       business_connection_id?: string,
       message_thread_id?: number,
-      parse_mode?: raw.ParseMode,
-      entities?: raw.MessageEntity[],
-      link_preview_options?: raw.LinkPreviewOptions,
+      parse_mode?: TG.ParseMode,
+      entities?: TG.MessageEntity[],
+      link_preview_options?: TG.LinkPreviewOptions,
       disable_notification?: boolean,
       protect_content?: boolean,
       message_effect_id?: string,
-      reply_parameters?: raw.ReplyParameters,
-      reply_markup?: raw.InlineKeyboardMarkup | raw.ReplyKeyboardMarkup | raw.ReplyKeyboardRemove | raw.ForceReply
+      reply_parameters?: TG.ReplyParameters,
+      reply_markup?: TG.InlineKeyboardMarkup | TG.ReplyKeyboardMarkup | TG.ReplyKeyboardRemove | TG.ForceReply
     }
   ): Promise<
-    raw.Message
+    TG.Message
   >;
   call(
     method: "getUpdates",
@@ -83,10 +83,10 @@ export class TelegramAPI {
       offset?: number,
       limit?: number,
       timeout?: number,
-      allowed_updates?: raw.UpdateTypes[]
+      allowed_updates?: TG.UpdateTypes[]
     }
   ): Promise<
-    raw.Update[]
+    TG.Update[]
   >;
 
   async call(method: string, args?: APICallArgs, abortController?: AbortController): Promise<any> {
@@ -105,7 +105,7 @@ export class TelegramAPI {
           }
         ).join("&");
 
-    const { data } = await this.axios.post<raw.Response>(method, body, {
+    const { data } = await this.axios.post<TG.Response>(method, body, {
       signal: abortController?.signal,
       validateStatus: () => true
     });

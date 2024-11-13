@@ -1,6 +1,4 @@
-import type { BotBase } from "./bot";
-import type { User } from "./types";
-import type raw from "./rawTypes";
+import { User } from "./users";
 
 export enum KeyboardType {
   NORMAL,

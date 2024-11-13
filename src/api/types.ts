@@ -1,7 +1,7 @@
 // I haven't done all types, so let's keep it for now
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 
-declare namespace raw {
+declare namespace TG {
 
   export interface User {
     id: number;
@@ -611,6 +611,6 @@ declare namespace raw {
     parameters?: ResponseParameters;
   }
   
-} // namespace raw
+} // namespace TG
 
-export default raw;
+export default TG;

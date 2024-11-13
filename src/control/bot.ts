@@ -1,15 +1,16 @@
 import { readFile } from "node:fs/promises";
 
-import { TelegramAPI } from "./api";
-import { MediaGroup, Message, MessageWithPhoto, MessageWithText, TextOnlyMessage, User } from "./types";
-import { InlineKeyboard, InlineKeyboardButtonActionType, InlineKeyboardButtonCallbackAction, InlineKeyboardButtonCopyTextAction, InlineKeyboardButtonUrlAction, Keyboard, KeyboardType } from "./keyboards";
-import { isPathExists } from "./utils";
-import type raw from "./rawTypes";
+import type TG from "../api/types";
+import { TelegramAPI } from "../api/api";
+import { Keyboard, KeyboardType, InlineKeyboard, InlineKeyboardButtonActionType, InlineKeyboardButtonUrlAction, InlineKeyboardButtonCopyTextAction, InlineKeyboardButtonCallbackAction } from "../types/keyboards";
+import { Message, MediaGroup, MessageWithText, TextOnlyMessage, MessageWithPhoto } from "../types/messages";
+import { User } from "../types/users";
+import { isPathExists } from "../utils/paths";
 
 type FunctionLike = (...args: any[]) => any;
 type CommandCallback = (message: Message) => any | Promise<any>;
 
-type BotBaseFunctions = { [K2 in keyof BotBase]: BotBase[K2] extends FunctionLike ? K2 : never }[keyof BotBase];
+type BotBaseFunctions = { [K2 in keyof TelegramBot]: TelegramBot[K2] extends FunctionLike ? K2 : never }[keyof TelegramBot];
 
 interface LoggerLike {
   debug(message: any, ...args: any[]): any;
@@ -24,10 +25,10 @@ interface LibConfig {
 }
 
 interface UpdatesHandlersMap {
-  get<K extends raw.UpdateTypes>(key: K): ((object: raw.Update[K]) => Promise<void>) | undefined;
+  get<K extends TG.UpdateTypes>(key: K): ((object: TG.Update[K]) => Promise<void>) | undefined;
 }
 
-export abstract class BotBase {
+export abstract class TelegramBot {
   declare readonly api: TelegramAPI;
   
   declare private _log: LoggerLike;
@@ -62,7 +63,7 @@ export abstract class BotBase {
     this.inlineCalbacks = new Map();
 
     this.longpollAbortController = new AbortController();
-    this.updatesHandlers = new Map<raw.UpdateTypes, (object: any) => Promise<void>>([
+    this.updatesHandlers = new Map<TG.UpdateTypes, (object: any) => Promise<void>>([
       [ "message", this.processMessageUpdate.bind(this) ],
       [ "callback_query", this.processCallbackQuery.bind(this) ]
     ]);
@@ -83,8 +84,8 @@ export abstract class BotBase {
     this.log.info("Bot exited");
   }
 
-  private async callback<K extends `on${string}` & BotBaseFunctions>(name: K, ...args: Parameters<BotBase[K]>): Promise<void> {
-    const method = this[name] as (...args: Parameters<BotBase[K]>) => ReturnType<BotBase[K]>;
+  private async callback<K extends `on${string}` & BotBaseFunctions>(name: K, ...args: Parameters<TelegramBot[K]>): Promise<void> {
+    const method = this[name] as (...args: Parameters<TelegramBot[K]>) => ReturnType<TelegramBot[K]>;
 
     try {
       await method.call(this, ...args);
@@ -95,7 +96,7 @@ export abstract class BotBase {
     }
   }
 
-  private async processMessageUpdate(rawMessage: raw.Message) {
+  private async processMessageUpdate(rawMessage: TG.Message) {
     const message = Message.fromRaw(rawMessage, this);
     
     const promises = [];
@@ -128,13 +129,13 @@ export abstract class BotBase {
     await Promise.all(promises);
   }
 
-  private async processCallbackQuery(callbackQuery: raw.CallbackQuery) {
+  private async processCallbackQuery(callbackQuery: TG.CallbackQuery) {
     if (!callbackQuery.data)
       return;
   }
 
-  private async processUpdates(update: raw.Update) {
-    await Promise.all((Object.keys(update) as (keyof raw.Update)[]).map((key) => {
+  private async processUpdates(update: TG.Update) {
+    await Promise.all((Object.keys(update) as (keyof TG.Update)[]).map((key) => {
       if (key === "update_id")
         return Promise.resolve();
 
@@ -233,18 +234,18 @@ export abstract class BotBase {
     return key;
   }
 
-  processKeyboard(keyboard: Keyboard): raw.InlineKeyboardMarkup | raw.ReplyKeyboardMarkup {
+  processKeyboard(keyboard: Keyboard): TG.InlineKeyboardMarkup | TG.ReplyKeyboardMarkup {
     switch (keyboard.getType()) {
       case KeyboardType.INLINE: {
         const inlineKeyboard = keyboard as InlineKeyboard;
-        const buttons: raw.InlineKeyboardButton[][] = [];
+        const buttons: TG.InlineKeyboardButton[][] = [];
 
         for (const row of inlineKeyboard.buttons) {
-          const rawRow: raw.InlineKeyboardButton[] = [];
+          const rawRow: TG.InlineKeyboardButton[] = [];
           for (const button of row) {
             const action = button.action;
             
-            const rawButton: raw.InlineKeyboardButton = {
+            const rawButton: TG.InlineKeyboardButton = {
               text: button.text
             };
 
