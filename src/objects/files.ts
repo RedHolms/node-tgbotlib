@@ -1,4 +1,4 @@
-import type TG from "../api/types";
+import type TG from "../telegram/types";
 import type { TelegramBot } from "../control/bot";
 
 export class File {
@@ -8,8 +8,8 @@ export class File {
   declare size?: number;
   declare path?: string;
 
-  static fromRaw(value: TG.File, bot: TelegramBot): File {
-    const object = new File();
+  static fromRaw(value: TG.File, bot: TelegramBot, dest?: File): File {
+    const object = dest || new File();
     object._bot = bot;
     object.id = value.file_id;
     object.uniqueId = value.file_unique_id;

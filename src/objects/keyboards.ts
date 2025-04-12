@@ -1,4 +1,5 @@
 import { User } from "./users";
+import type { OneOf } from "../utils/types";
 
 export enum KeyboardType {
   NORMAL,
@@ -9,7 +10,7 @@ export abstract class Keyboard {
   abstract getType(): KeyboardType;
 }
 
-class NormalKeyboard extends Keyboard {
+export class NormalKeyboard extends Keyboard {
   getType() { return KeyboardType.NORMAL; }
 }
 
@@ -63,23 +64,12 @@ export class InlineKeyboard extends Keyboard {
 
 type InlineKeyboardButtonInit = {
   text: string;
-} & (
-  {
-    url: string;
-    callback?: never;
-    copyText?: never;
-  } |
-  {
-    url?: never;
-    callback: (user: User) => any | Promise<any>;
-    copyText?: never;
-  } |
-  {
-    url?: never;
-    callback?: never;
-    copyText: string;
-  }
-);
+} & OneOf<[
+  { url: string; },
+  { callback: (user: User) => any | Promise<any>; },
+  { copyText: string; },
+  {}
+]>;
 
 class InlineKeyboardBuilder {
   declare keyboard: InlineKeyboard;

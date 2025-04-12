@@ -2,9 +2,9 @@ import { Chat } from "./chats";
 import { User } from "./users";
 import { Photo } from "./photos";
 import type { Keyboard } from "./keyboards";
-import type TG from "../api/types";
+import type TG from "../telegram/types";
 import type { TelegramBot } from "../control/bot";
-import type { OptionalField } from "../utils/types";
+import type { OneOf } from "../utils/types";
 
 export class MediaGroup {
   declare id: string;
@@ -23,24 +23,19 @@ export type MessageInitWithoutReply = string | {
 export type MessageInit = string | ({
   text: string;
   keyboard?: Keyboard;
-} & (
-  { replyTo: Message; replyOptions?: never } |
-  { replyOptions: ReplyOptions; replyTo?: never } |
-  { replyOptions?: never; replyTo?: never}
-));
+} & OneOf<[
+  { replyTo: Message },
+  { replyOptions: ReplyOptions },
+  {}
+]>);
 
-interface MessageConfig {
-  text?: boolean;
-  photo?: boolean;
-}
-
-export class Message<Cfg extends MessageConfig = object> {
+export class Message {
   declare protected _bot: TelegramBot;
   declare id: number;
-  declare text: OptionalField<string, Cfg["text"]>;
+  declare text?: string;
   declare chat: Chat;
   declare sender?: User;
-  declare photo?: OptionalField<Photo, Cfg["photo"]>;
+  declare photo?: Photo;
   declare mediaGroup?: MediaGroup;
 
   reply(init: MessageInitWithoutReply): Promise<Message> {
@@ -77,7 +72,3 @@ export class Message<Cfg extends MessageConfig = object> {
     return object;
   }
 }
-
-export type MessageWithText = Message<{ text: true }>;
-export type MessageWithPhoto = Message<{ photo: true }>;
-export type TextOnlyMessage = Message<{ text: true, photo: false }>;

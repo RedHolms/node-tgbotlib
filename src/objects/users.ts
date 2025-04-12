@@ -1,5 +1,5 @@
 import { PrivateChat } from "./chats";
-import type TG from "../api/types";
+import type TG from "../telegram/types";
 import type { TelegramBot } from "../control/bot";
 
 export class User {

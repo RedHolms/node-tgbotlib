@@ -1,6 +1,6 @@
 import { Message } from "./messages";
 import type { MessageInit } from "./messages";
-import type TG from "../api/types";
+import type TG from "../telegram/types";
 import type { TelegramBot } from "../control/bot";
 
 export enum ChatType {
@@ -13,9 +13,12 @@ export enum ChatType {
 
 export abstract class Chat {
   declare protected _bot: TelegramBot;
+  declare type: ChatType;
   declare id: number;
 
   abstract getType(): ChatType;
+  isPrivate() { return this.getType() === ChatType.PRIVATE; }
+  isUnknown() { return this.getType() === ChatType.UNKNOWN; }
 
   async send(init: MessageInit): Promise<Message> {
     if (typeof init === "string")
@@ -40,7 +43,7 @@ export abstract class Chat {
       replyMarkup = this._bot.processKeyboard(init.keyboard);
 
     return Message.fromRaw(
-      await this._bot.api.call("sendMessage", {
+      await this._bot.tg.api.call("sendMessage", {
         chat_id: this.id,
         text: init.text,
         reply_parameters: replyParameters,

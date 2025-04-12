@@ -13,12 +13,12 @@
     "telegram"
   ],
   "main": "dist/index.js",
-  "types": "./index.d.ts",
-  "typings": "./index.d.ts",
+  "types": "./types/index.d.ts",
+  "typings": "./types/index.d.ts",
   "exports": {
     ".": {
       "types": {
-        "default": "./index.d.ts"
+        "default": "./types/index.d.ts"
       },
       "default": {
         "default": "./dist/index.js"
@@ -26,8 +26,7 @@
     }
   },
   "scripts": {
-    "dev": "tsx ./dev.ts",
-    "build": "tsx ./build.ts",
+    "build": "tsx ./scripts/build.ts",
     "prepublishOnly": "npm run lint && npm run test:types && npm run build",
     "test:types": "tsd",
     "lint": "eslint"
@@ -38,17 +37,18 @@
   "devDependencies": {
     "@eslint/js": "^9.13.0",
     "@types/node": "^22.8.2",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.24.2",
     "eslint": "^9.13.0",
     "log4js": "^6.9.1",
     "rimraf": "^6.0.1",
     "tsd": "^0.31.2",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "typescript-eslint": "^8.12.2"
+    "typescript-eslint": "^8.12.2",
+    "typescript-parser": "^2.6.1"
   },
   "files": [
-    "index.d.ts",
-    "dist"
+    "dist",
+    "types"
   ]
 }

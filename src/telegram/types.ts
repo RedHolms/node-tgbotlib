@@ -1,6 +1,3 @@
-// I haven't done all types, so let's keep it for now
-/* eslint-disable @typescript-eslint/no-empty-object-type */
-
 declare namespace TG {
 
   export interface User {
@@ -609,7 +606,7 @@ declare namespace TG {
     error_code: number;
     description?: string;
     parameters?: ResponseParameters;
-  }
+  };
   
 } // namespace TG
 

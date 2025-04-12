@@ -1,49 +1,42 @@
 import { readFile } from "node:fs/promises";
-
-import type TG from "../api/types";
-import { TelegramAPI } from "../api/api";
-import { Keyboard, KeyboardType, InlineKeyboard, InlineKeyboardButtonActionType, InlineKeyboardButtonUrlAction, InlineKeyboardButtonCopyTextAction, InlineKeyboardButtonCallbackAction } from "../types/keyboards";
-import { Message, MediaGroup, MessageWithText, TextOnlyMessage, MessageWithPhoto } from "../types/messages";
-import { User } from "../types/users";
+import readline from "node:readline";
+import { BotUpdatesManager } from "./updates";
+import { Keyboard, KeyboardType, InlineKeyboard, InlineKeyboardButtonActionType, InlineKeyboardButtonUrlAction, InlineKeyboardButtonCopyTextAction, InlineKeyboardButtonCallbackAction } from "../objects/keyboards";
+import { Message, MediaGroup } from "../objects/messages";
+import { User } from "../objects/users";
 import { isPathExists } from "../utils/paths";
+import { LoggerLike } from "../utils/types";
+import { TelegramUpdateFetcher } from "./updates/updateFetcher";
+import { TelegramLongPollUpdateFetcher } from "./updates/longpoll";
+import { EventEmitter } from "../emitter";
+import type TG from "../telegram/types";
+import { Telegram } from "../telegram/telegram";
 
-type FunctionLike = (...args: any[]) => any;
 type CommandCallback = (message: Message) => any | Promise<any>;
-
-type BotBaseFunctions = { [K2 in keyof TelegramBot]: TelegramBot[K2] extends FunctionLike ? K2 : never }[keyof TelegramBot];
-
-interface LoggerLike {
-  debug(message: any, ...args: any[]): any;
-  info(message: any, ...args: any[]): any;
-  warn(message: any, ...args: any[]): any;
-  error(message: any, ...args: any[]): any;
-  fatal(message: any, ...args: any[]): any;
-}
 
 interface LibConfig {
   botToken: string;
 }
 
-interface UpdatesHandlersMap {
-  get<K extends TG.UpdateTypes>(key: K): ((object: TG.Update[K]) => Promise<void>) | undefined;
+interface TelegramBotEvents {
+  start:    [];
+  shutdown: [];
+  message:  [message: Message];
 }
 
-export abstract class TelegramBot {
-  declare readonly api: TelegramAPI;
-  
-  declare private _log: LoggerLike;
-  get log() { return this._log; }
+export abstract class TelegramBot extends EventEmitter<TelegramBotEvents> {
+  declare tg: Telegram;
+  declare log: LoggerLike;
+
+  declare private updateFetcher: TelegramUpdateFetcher;
+  declare updatesManager: BotUpdatesManager;
 
   declare private infoUpdateTimeout?: NodeJS.Timeout;
   
-  declare private commands: Map<string, CommandCallback>;
-  declare private mediaGroups: Map<string, MediaGroup>;
-  declare private inlineCalbacks: Map<string, (user: User) => any | Promise<any>>;
-  declare private inlineCalbacksKeys: Map<(user: User) => any | Promise<any>, string>;
-
-  declare private longpollAbortController: AbortController;
-  declare private updateOffset?: number;
-  declare private updatesHandlers: UpdatesHandlersMap;
+  declare commands: Map<string, CommandCallback>;
+  declare mediaGroups: Map<string, MediaGroup>;
+  declare inlineCalbacks: Map<string, (user: User) => any | Promise<any>>;
+  declare inlineCalbacksKeys: Map<(user: User) => any | Promise<any>, string>;
 
   declare protected botInfo: {
     id: number;
@@ -57,117 +50,58 @@ export abstract class TelegramBot {
   };
 
   constructor() {
-    this.api = new TelegramAPI();
+    super();
     this.commands = new Map();
     this.mediaGroups = new Map();
     this.inlineCalbacks = new Map();
-
-    this.longpollAbortController = new AbortController();
-    this.updatesHandlers = new Map<TG.UpdateTypes, (object: any) => Promise<void>>([
-      [ "message", this.processMessageUpdate.bind(this) ],
-      [ "callback_query", this.processCallbackQuery.bind(this) ]
-    ]);
   }
 
+  abstract init(): void | Promise<void>;
+
   async start() {
+    this.log = this.getLogger();
+    
     await this.loadConfig();
 
+    this.log.debug("Getting bot info");
     await this.updateBotInfo();
-    this._log = this.getLogger();
+
+    this.updateFetcher = new TelegramLongPollUpdateFetcher(this.tg.api, this.log);
+    this.updatesManager = new BotUpdatesManager(this, this.updateFetcher);
+
+    if (process.platform === "win32") {
+      const cl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+    
+      cl.on("SIGINT", function () {
+        process.emit("SIGINT");
+      });
+    }
+
+    process.on("SIGINT", () => {
+      this.log.debug("Got interrupt");
+      this.shutdown();
+    });
 
     this.log.info("Starting...");
-
-    await this.callback("onStart");
-    await this.longpollCycle();
-    await this.callback("onShutdown");
+    
+    await this.init();
+    await this.safeEmit("start");
+    await this.updateFetcher.start();
+    await this.safeEmit("shutdown");
 
     this.log.info("Bot exited");
   }
 
-  private async callback<K extends `on${string}` & BotBaseFunctions>(name: K, ...args: Parameters<TelegramBot[K]>): Promise<void> {
-    const method = this[name] as (...args: Parameters<TelegramBot[K]>) => ReturnType<TelegramBot[K]>;
-
+  async safeEmit<K extends keyof TelegramBotEvents>(event: K, ...args: TelegramBotEvents[K]): Promise<void> {
     try {
-      await method.call(this, ...args);
+      await this.emit(event, ...args);
     }
     catch(error: any) {
-      this.log.error(`Error in callback ${name}`);
+      this.log.error(`Error in event ${event}`);
       this.log.error(error);
-    }
-  }
-
-  private async processMessageUpdate(rawMessage: TG.Message) {
-    const message = Message.fromRaw(rawMessage, this);
-    
-    const promises = [];
-    promises.push(this.callback("onMessage", message));
-    
-    if (rawMessage.text)
-      promises.push(this.callback("onMessageWithText", message));
-
-    if (rawMessage.photo)
-      promises.push(this.callback("onMessageWithPhoto", message));
-
-    if (rawMessage.entities) {
-      for (const entity of rawMessage.entities) {
-        if (entity.type === "bot_command") {
-          // Here we're sure that text must be a string
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          const command = rawMessage.text!.slice(entity.offset + 1, entity.offset + entity.length);
-
-          promises.push(this.callback("onCommand", command, message));
-
-          const callback = this.commands.get(command);
-          if (callback)
-            promises.push(callback(message));
-          else
-            promises.push(this.callback("onUnknownCommand", command, message));
-        }
-      }
-    }
-
-    await Promise.all(promises);
-  }
-
-  private async processCallbackQuery(callbackQuery: TG.CallbackQuery) {
-    if (!callbackQuery.data)
-      return;
-  }
-
-  private async processUpdates(update: TG.Update) {
-    await Promise.all((Object.keys(update) as (keyof TG.Update)[]).map((key) => {
-      if (key === "update_id")
-        return Promise.resolve();
-
-      const handler = this.updatesHandlers.get(key);
-
-      if (!handler) {
-        this.log.warn(`Unknown update type "${key}"`);
-        return Promise.resolve();
-      }
-
-      return handler(update[key]);
-    }));
-  }
-
-  private async longpollCycle() {
-    this.log.info("Started");
-
-    while (!this.longpollAbortController.signal.aborted) {
-      const updates = await this.api.call("getUpdates", {
-        offset: this.updateOffset as any,
-        timeout: 40
-      });
-
-      const promises: Promise<void>[] = [];
-      for (const update of updates) {
-        if (!this.updateOffset || update.update_id >= this.updateOffset)
-          this.updateOffset = update.update_id + 1;
-
-        promises.push(this.processUpdates(update));
-      }
-
-      await Promise.all(promises);
     }
   }
 
@@ -181,7 +115,7 @@ export abstract class TelegramBot {
     const content = await readFile(".tgbotlib", "utf-8");
     const config: LibConfig = JSON.parse(content);
 
-    this.api.setToken(config.botToken);
+    this.tg.api.setToken(config.botToken);
   }
 
   useMediaGroup(id: string, message: Message): MediaGroup {
@@ -256,12 +190,12 @@ export abstract class TelegramBot {
               case InlineKeyboardButtonActionType.COPY_TEXT:
                 rawButton.url = (action as InlineKeyboardButtonCopyTextAction).text;
                 break;
-              case InlineKeyboardButtonActionType.CALLBACK:
+              case InlineKeyboardButtonActionType.CALLBACK: {
                 const { callback } = (action as InlineKeyboardButtonCallbackAction);
                 const key = this.hashInlineCallback(callback);
 
                 rawButton.callback_data = `0;${key}`;
-                break;
+              } break;
             }
 
             rawRow.push(rawButton);
@@ -292,14 +226,12 @@ export abstract class TelegramBot {
     if (this.infoUpdateTimeout)
       clearTimeout(this.infoUpdateTimeout);
     
-    const me = await this.api.call("getMe");
+    const me = await this.tg.api.call("getMe");
     
     this.botInfo = {
       id: me.id,
       firstName: me.first_name,
-      // Bots always have a name
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      username: me.username!,
+      username: me.username!, // Bots always have a name
       canJoinGroups: me.can_join_groups,
       canReadAllGroupMessages: me.can_read_all_group_messages,
       supportsInlineQueries: me.supports_inline_queries,
@@ -311,7 +243,7 @@ export abstract class TelegramBot {
   }
 
   protected shutdown() {
-    this.longpollAbortController.abort();
+    this.updateFetcher.stop();
   }
 
   /// User defined logger
@@ -325,16 +257,4 @@ export abstract class TelegramBot {
       fatal: empty
     };
   }
-  
-  /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function */
-
-  /// User callbacks
-  onStart():                                                    any | Promise<any> {}
-  onShutdown():                                                 any | Promise<any> {}
-  onMessage(message: Message):                                  any | Promise<any> {}
-  onCommand(command: string, message: MessageWithText):         any | Promise<any> {}
-  onUnknownCommand(command: string, message: MessageWithText):  any | Promise<any> {}
-  onMessageWithText(message: MessageWithText):                  any | Promise<any> {}
-  onTextOnlyMessage(message: TextOnlyMessage):                  any | Promise<any> {}
-  onMessageWithPhoto(message: MessageWithPhoto):                any | Promise<any> {}
 }

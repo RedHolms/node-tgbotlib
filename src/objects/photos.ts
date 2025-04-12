@@ -1,24 +1,27 @@
-export class PhotoSize {
-  declare protected _bot: BotBase;
-  declare file: File;
+import { File } from "./files";
+import type { TelegramBot } from "../control/bot";
+import type TG from "../telegram/types";
+
+export class PhotoSize extends File {
+  declare protected _bot: TelegramBot;
   declare width: number;
   declare height: number;
 
-  static fromRaw(value: raw.PhotoSize, bot: BotBase): PhotoSize {
+  static fromRaw(value: TG.PhotoSize, bot: TelegramBot): PhotoSize {
     const object = new PhotoSize();
     object._bot = bot;
-    object.file = File.fromRaw(value, bot);
     object.width = value.width;
     object.height = value.height;
+    File.fromRaw(value, bot, object);
     return object;
   }
 }
 
 export class Photo {
-  declare protected _bot: BotBase;
+  declare protected _bot: TelegramBot;
   declare sizes: PhotoSize[];
 
-  static fromRaw(value: raw.PhotoSize[], bot: BotBase): Photo {
+  static fromRaw(value: TG.PhotoSize[], bot: TelegramBot): Photo {
     const object = new Photo();
     object._bot = bot;
     object.sizes = [];

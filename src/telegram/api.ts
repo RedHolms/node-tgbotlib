@@ -84,7 +84,8 @@ export class TelegramAPI {
       limit?: number,
       timeout?: number,
       allowed_updates?: TG.UpdateTypes[]
-    }
+    },
+    abortController?: AbortController
   ): Promise<
     TG.Update[]
   >;
