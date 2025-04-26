@@ -12,7 +12,8 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "declarationDir": "types",
-    "stripInternal": true
+    "stripInternal": true,
+    "verbatimModuleSyntax": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

@@ -1,7 +1,7 @@
-import { BotBase } from ".";
 import { File } from "./file";
-import TG from "./tg";
 import { TGObject } from "./tgObject";
+import type { BotBase } from ".";
+import type TG from "./tg";
 
 export class PhotoSize extends File {
   width: number;

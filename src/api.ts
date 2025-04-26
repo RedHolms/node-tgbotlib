@@ -1,6 +1,6 @@
 import axios from "axios";
-import type { AxiosInstance } from "axios";
 import type TG from "./tg";
+import type { AxiosInstance } from "axios";
 
 export interface APIErrorParameters {
   migrateToChatId?: number;
@@ -80,6 +80,16 @@ interface APIMethods {
       allowed_updates?: TG.UpdateTypes[]
     },
     result: TG.Update[]
+  },
+  ["answerCallbackQuery"]: {
+    args: {
+      callback_query_id: string;
+      text?: string;
+      show_alert?: boolean;
+      url?: string;
+      cache_time?: number;
+    },
+    result: true
   }
 }
 

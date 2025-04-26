@@ -1,12 +1,14 @@
 import eslint from "@eslint/js";
-import tseslint from "typescript-eslint";
+import importEslint from "eslint-plugin-import";
+import tsEslint from "typescript-eslint";
 
 /** @type {import("eslint").Linter.Config} */
-export default tseslint.config(
-  { ignores: [ "dist", "node_modules" ] },
+export default tsEslint.config(
+  { ignores: [ "dist", "types", "node_modules" ] },
   eslint.configs.recommended,
-  ...tseslint.configs.strict,
-  ...tseslint.configs.stylistic,
+  importEslint.flatConfigs.recommended,
+  ...tsEslint.configs.strict,
+  ...tsEslint.configs.stylistic,
   {
     rules: {
       "semi": ["error", "always"],
@@ -18,7 +20,34 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-empty-function": "off",
-      "@typescript-eslint/consistent-indexed-object-style": ["error", "record"]
+      "@typescript-eslint/consistent-indexed-object-style": ["error", "record"],
+      "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/no-import-type-side-effects": "error",
+      "@typescript-eslint/no-invalid-void-type": "off",
+      "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+      "import/order": ["error", {
+        groups: [
+          "builtin",
+          "external",
+          "parent",
+          "sibling",
+          "index",
+          "type"
+        ],
+        named: {
+          enabled: true,
+          import: true,
+          export: false,
+          require: true,
+          cjsExports: false,
+          types: "types-last"
+        },
+        alphabetize: {
+          order: "asc",
+          orderImportKind: "asc"
+        }
+      }],
+      "import/no-unresolved": "off"
     }
   }
 );

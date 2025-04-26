@@ -1,6 +1,6 @@
-import { BotBase } from ".";
-import TG from "./tg";
 import { TGObject } from "./tgObject";
+import type { BotBase } from ".";
+import type TG from "./tg";
 
 export interface FileDownloadProgress {
   file:  File;

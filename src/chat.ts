@@ -1,10 +1,11 @@
-import { _BOT, TGObject } from "./tgObject";
-import { BotBase } from ".";
-import TG from "./tg";
-import { User } from "./user";
-import { Message, MessageInit, ObjectMessageInit, parseRawMessage } from "./message";
-import { Photo } from "./photo";
 import { assumeIs } from "./assume";
+import { parseRawMessage } from "./message";
+import { Photo } from "./photo";
+import { TGObject, _BOT } from "./tgObject";
+import type { BotBase } from ".";
+import type { Message, MessageInit, ObjectMessageInit } from "./message";
+import type TG from "./tg";
+import type { User } from "./user";
 
 export enum ChatType {
   PRIVATE,
@@ -58,19 +59,20 @@ class ChatBase extends TGObject<ChatEvents> {
     const baseArgs = {
       chat_id: this.id,
       reply_parameters: replyParameters,
-      reply_markup: replyMarkup
+      reply_markup: replyMarkup,
+      parse_mode: init.parseMode
     };
 
-    if (init.text) {
-      return parseRawMessage(await this[_BOT].api.call("sendMessage", { ...baseArgs, text: init.text }), this[_BOT]);
-    }
-    else if (init.photo) {
+    if (init.photo) {
       return parseRawMessage(await this[_BOT].api.call("sendPhoto",
         {
           ...baseArgs, photo: typeof init.photo === "string" ? init.photo : init.photo.sizes[0].id,
           caption: init.text
         }
       ), this[_BOT]);
+    }
+    else if (init.text) {
+      return parseRawMessage(await this[_BOT].api.call("sendMessage", { ...baseArgs, text: init.text }), this[_BOT]);
     }
 
     throw new Error("Invalid message init");
@@ -116,12 +118,13 @@ export class UnknownChat extends ChatBase {
   }
 }
 
-export type Chat = PrivateChat | UnknownChat;
+export type Chat = PrivateChat | UnknownChat
 
 const TYPE_TO_CLASS = new Map<string, typeof ChatBase>([
   ["private", PrivateChat]
 ]);
 
+/** @internal */
 export function parseRawChat(raw: TG.Chat, bot: BotBase): Chat {
   const clazz = TYPE_TO_CLASS.get(raw.type) || UnknownChat;
   return new clazz(raw, bot) as Chat;

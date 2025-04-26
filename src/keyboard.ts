@@ -1,6 +1,6 @@
-import { Chat } from ".";
-import { User } from "./user";
-import { Awaitable, OneOf } from "./utils";
+import type { Chat } from ".";
+import type { User } from "./user";
+import type { Awaitable, OneOf } from "./utils";
 
 export enum KeyboardType {
   NORMAL,
@@ -76,7 +76,7 @@ export type InlineCallbackResult = string | {
   alert?: boolean;
 }
 
-export type InlineCallback = (user: User, chat?: Chat) => Awaitable<InlineCallbackResult | undefined>;
+export type InlineCallback = (user: User, chat?: Chat) => Awaitable<InlineCallbackResult | void>;
 
 type InlineKeyboardButtonInit = {
   text: string;

@@ -1,11 +1,12 @@
-import { User } from "./user";
-import { BotBase } from ".";
-import { TGObject } from "./tgObject";
-import TG from "./tg";
-import { Chat, parseRawChat } from "./chat";
+import { parseRawChat } from "./chat";
 import { Photo } from "./photo";
-import { Keyboard } from "./keyboard";
-import { OneOf } from "./utils";
+import { TGObject } from "./tgObject";
+import { User } from "./user";
+import type { Chat } from "./chat";
+import type { BotBase } from "./index";
+import type { Keyboard } from "./keyboard";
+import type TG from "./tg";
+import type { OneOf } from "./utils";
 
 export interface MediaGroup {
   readonly id: string;
@@ -18,9 +19,11 @@ export interface ReplyOptions {
 
 export type ObjectMessageInit = OneOf<[{
   text: string;
+  parseMode?: TG.ParseMode;
 }, {
   photo: Photo | string;
   text?: string; // caption
+  parseMode?: TG.ParseMode;
 }]> & {
   keyboard?: Keyboard;
 };
@@ -115,6 +118,7 @@ export class UnknownMessage extends MessageBase {
 
 export type Message = TextMessage | PhotoMessage | UnknownMessage;
 
+/** @internal */
 export function parseRawMessage(raw: TG.Message, bot: BotBase): Message {
   if (raw.text !== undefined)
     return new TextMessage(raw as any, bot);

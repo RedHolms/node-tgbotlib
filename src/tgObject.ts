@@ -1,5 +1,5 @@
-import { EventEmitter } from "src/emitter";
-import type { EventsMap } from "src/emitter";
+import { EventEmitter } from "./emitter";
+import type { EventsMap } from "./emitter";
 import type { BotBase } from "./index";
 
 export const _BOT = Symbol("ParentTGBot");

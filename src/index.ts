@@ -1,12 +1,14 @@
 import { CanceledError } from "axios";
 import { TelegramAPI } from "./api";
-import { EventEmitter } from "./emitter";
-import type TG from "./tg";
-import { Message, parseRawMessage } from "./message";
-import { InlineKeyboard, InlineKeyboardButtonActionType, InlineCallback, Keyboard, KeyboardType } from "./keyboard";
 import { assumeIs } from "./assume";
+import { EventEmitter } from "./emitter";
+import { InlineKeyboardButtonActionType, KeyboardType } from "./keyboard";
+import { parseRawMessage } from "./message";
 import { User } from "./user";
 import { parseRawChat } from ".";
+import type { InlineCallback, InlineKeyboard, Keyboard } from "./keyboard";
+import type { Message } from "./message";
+import type TG from "./tg";
 
 export type CommandCallback = (message: Message) => void | Promise<void>;
 type UpdateHandler<T> = (update: NonNullable<T>) => Promise<any>;
@@ -140,7 +142,15 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
         return;
       }
 
-      callback(new User(raw.from, this), raw.message && parseRawChat(raw.message.chat, this));
+      let result = await callback(new User(raw.from, this), raw.message && parseRawChat(raw.message.chat, this));
+      if (typeof result === "string")
+        result = { text: result };
+
+      await this.api.call("answerCallbackQuery", {
+        callback_query_id: raw.id,
+        text: result?.text,
+        show_alert: result?.alert
+      });
     }
   }
 

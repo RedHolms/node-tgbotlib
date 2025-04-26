@@ -1,7 +1,7 @@
-import { TGObject } from "./tgObject";
-import type TG from "./tg";
-import type { BotBase } from "./index";
 import { PrivateChat } from "./chat";
+import { TGObject } from "./tgObject";
+import type { BotBase } from "./index";
+import type TG from "./tg";
 
 export class User extends TGObject {
   declare id: number;
