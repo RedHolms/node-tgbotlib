@@ -1,5 +1,6 @@
+import { Chat } from ".";
 import { User } from "./user";
-import { OneOf } from "./utils";
+import { Awaitable, OneOf } from "./utils";
 
 export enum KeyboardType {
   NORMAL,
@@ -43,7 +44,7 @@ export interface InlineKeyboardButtonUrlAction {
 
 export interface InlineKeyboardButtonCallbackAction {
   type: InlineKeyboardButtonActionType.CALLBACK;
-  callback: (user: User) => any | Promise<any>;
+  callback: InlineCallback;
 }
 
 export interface InlineKeyboardButtonCopyTextAction {
@@ -70,11 +71,18 @@ export class InlineKeyboard {
 
 export type Keyboard = NormalKeyboard | InlineKeyboard;
 
+export type InlineCallbackResult = string | {
+  text: string;
+  alert?: boolean;
+}
+
+export type InlineCallback = (user: User, chat?: Chat) => Awaitable<InlineCallbackResult | undefined>;
+
 type InlineKeyboardButtonInit = {
   text: string;
 } & OneOf<[
   { url: string; },
-  { callback: (user: User) => any | Promise<any>; },
+  { callback: InlineCallback; },
   { copyText: string; }
 ]>;
 

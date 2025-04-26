@@ -34,6 +34,9 @@ declare namespace TG {
     type: "channel";
     username?: string;
     title: string;
+  } | {
+    // used when we get only chat id, without additional info
+    type: "any";
   });
   export interface ChatFullInfo {}
   export type ParseMode = "MarkdownV2" | "HTML" | "Markdown";

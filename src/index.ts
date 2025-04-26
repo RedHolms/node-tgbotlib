@@ -3,9 +3,10 @@ import { TelegramAPI } from "./api";
 import { EventEmitter } from "./emitter";
 import type TG from "./tg";
 import { Message, parseRawMessage } from "./message";
-import { InlineKeyboard, InlineKeyboardButtonActionType, Keyboard, KeyboardType } from "./keyboard";
+import { InlineKeyboard, InlineKeyboardButtonActionType, InlineCallback, Keyboard, KeyboardType } from "./keyboard";
 import { assumeIs } from "./assume";
 import { User } from "./user";
+import { parseRawChat } from ".";
 
 export type CommandCallback = (message: Message) => void | Promise<void>;
 type UpdateHandler<T> = (update: NonNullable<T>) => Promise<any>;
@@ -41,8 +42,9 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
   // <chatid>_<messageid> -> weak ref to object
   private messages: Map<string, WeakRef<Message>>;
   private commands: Map<string, CommandCallback>;
-  private inlineCalbacks: Map<string, (user: User) => any | Promise<any>>;
-  private inlineCalbacksKeys: Map<(user: User) => any | Promise<any>, string>;
+  // todo weak refs everywhere
+  private inlineCalbacks: Map<string, InlineCallback>;
+  private inlineCalbacksKeys: Map<InlineCallback, string>;
 
   declare protected botInfo: {
     id: number;
@@ -122,6 +124,26 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     await Promise.all(promises);
   }
 
+  private async handleCallbackQuery(raw: TG.CallbackQuery) {
+    if (!raw.data) {
+      this.log.warn("Callback query without a data: ", raw);
+      return;
+    }
+
+    if (raw.data.startsWith("0;")) {
+      // inline button callback
+      const key = raw.data.slice(2);
+      const callback = this.inlineCalbacks.get(key);
+
+      if (!callback) {
+        this.log.warn("Invalid inline button callback key: ", key);
+        return;
+      }
+
+      callback(new User(raw.from, this), raw.message && parseRawChat(raw.message.chat, this));
+    }
+  }
+
   private generateUniqueKey(): string {
     const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-0123456789";
     const charactersLength = characters.length;
@@ -137,7 +159,7 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     return result;
   }
 
-  private hashInlineCallback(callback: (user: User) => any | Promise<any>): string {
+  private hashInlineCallback(callback: InlineCallback): string {
     if (this.inlineCalbacksKeys.has(callback))
       return this.inlineCalbacksKeys.get(callback)!;
 
@@ -221,6 +243,7 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     await this.init();
 
     this.handlers.set("message", this.handleNewMessage.bind(this));
+    this.handlers.set("callback_query", this.handleCallbackQuery.bind(this));
     
     this.abortController = new AbortController();
     let updateOffset: number | undefined = undefined;

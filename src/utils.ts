@@ -18,3 +18,5 @@ declare namespace Mark { const Mark: unique symbol; }
 
 // Create non-castable type without real implementation
 export interface UniqueType<T> { [Mark.Mark]: T; }
+
+export type Awaitable<T> = T | PromiseLike<T>;
