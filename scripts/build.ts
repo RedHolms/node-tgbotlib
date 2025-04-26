@@ -5,7 +5,8 @@ esbuild.build({
   outfile: "./dist/index.js",
   platform: "node",
   bundle: true,
-  minify: true,
   packages: "external",
-  format: "esm"
+  treeShaking: true,
+  format: "esm",
+  sourcemap: "inline"
 });

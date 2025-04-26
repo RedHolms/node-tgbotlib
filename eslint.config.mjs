@@ -18,7 +18,7 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-empty-function": "off",
-      "@typescript-eslint/consistent-indexed-object-style": ["error", "index-signature"]
+      "@typescript-eslint/consistent-indexed-object-style": ["error", "record"]
     }
   }
 );

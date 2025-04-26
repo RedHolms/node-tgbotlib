@@ -7,8 +7,12 @@
     "alwaysStrict": true,
     "allowSyntheticDefaultImports": true,
     "paths": {
-      ".../*": ["./src/*"]
-    }
+      "src/*": ["./src/*"]
+    },
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "types",
+    "stripInternal": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

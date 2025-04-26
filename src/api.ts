@@ -1,7 +1,6 @@
 import axios from "axios";
 import type { AxiosInstance } from "axios";
-
-import type TG from "./types";
+import type TG from "./tg";
 
 export interface APIErrorParameters {
   migrateToChatId?: number;
@@ -26,40 +25,19 @@ export class APIError extends Error {
   }
 }
 
-interface APICallArgs {
-  [name: string]: string | number | boolean | object;
-}
+type APICallArgs = Record<string, string | number | boolean | object>;
 
-export class TelegramAPI {
-  declare private axios?: AxiosInstance;
-
-  constructor(token?: string) {
-    if (token)
-      this.setToken(token);
-  }
-
-  setToken(token: string) {
-    this.axios = axios.create({
-      baseURL: `https://api.telegram.org/bot${token}/`,
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      }
-    });
-  }
-
-  call(
-    method: "getMe"
-  ): Promise<
-    TG.User & {
+interface APIMethods {
+  ["getMe"]: {
+    result: TG.User & {
       can_join_groups: boolean;
       can_read_all_group_messages: boolean;
       supports_inline_queries: boolean;
       can_connect_to_business: boolean;
       has_main_web_app: boolean;
     }
-  >;
-  call(
-    method: "sendMessage",
+  },
+  ["sendMessage"]: {
     args: {
       chat_id: number | `@${string}`,
       text: string,
@@ -73,40 +51,68 @@ export class TelegramAPI {
       message_effect_id?: string,
       reply_parameters?: TG.ReplyParameters,
       reply_markup?: TG.InlineKeyboardMarkup | TG.ReplyKeyboardMarkup | TG.ReplyKeyboardRemove | TG.ForceReply
-    }
-  ): Promise<
-    TG.Message
-  >;
-  call(
-    method: "getUpdates",
+    },
+    result: TG.Message
+  },
+  ["sendPhoto"]: {
+    args: {
+      chat_id: number | `@${string}`,
+      photo: string,
+      caption?: string,
+      business_connection_id?: string,
+      message_thread_id?: number,
+      parse_mode?: TG.ParseMode,
+      entities?: TG.MessageEntity[],
+      link_preview_options?: TG.LinkPreviewOptions,
+      disable_notification?: boolean,
+      protect_content?: boolean,
+      message_effect_id?: string,
+      reply_parameters?: TG.ReplyParameters,
+      reply_markup?: TG.InlineKeyboardMarkup | TG.ReplyKeyboardMarkup | TG.ReplyKeyboardRemove | TG.ForceReply
+    },
+    result: TG.Message
+  },
+  ["getUpdates"]: {
     args?: {
       offset?: number,
       limit?: number,
       timeout?: number,
       allowed_updates?: TG.UpdateTypes[]
     },
-    abortController?: AbortController
-  ): Promise<
-    TG.Update[]
-  >;
+    result: TG.Update[]
+  }
+}
 
-  async call(method: string, args?: APICallArgs, abortController?: AbortController): Promise<any> {
+type APICallFuncArgs<Method extends keyof APIMethods> =
+  APIMethods[Method] extends { args: any }
+    ? [args: APIMethods[Method]["args"]]
+  : APIMethods[Method] extends { args?: any }
+    ? [args?: APIMethods[Method]["args"]]
+    : [];
+
+export class TelegramAPI {
+  private axios?: AxiosInstance;
+
+  setToken(token: string) {
+    this.axios = axios.create({
+      baseURL: `https://api.telegram.org/bot${token}/`,
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+  }
+
+  call<M extends keyof APIMethods>(method: M, ...args: APICallFuncArgs<M>): Promise<APIMethods[M]["result"]> {
+    return this.callEx(method, { args: args[0] });
+  }
+
+  async callEx(method: string, config: { args?: any, abortController?: AbortController }): Promise<any> {
     if (!this.axios)
       throw new Error("Set bot token before calling API");
 
-    const body =
-      Object.entries(args || {})
-        .filter(([,v]) => v !== undefined && v !== null)
-        .map(
-          ([key, value]) => {
-            if (typeof value === "object")
-              value = JSON.stringify(value);
+    const { args, abortController } = config;
 
-            return [key, value].map(encodeURIComponent).join("=");
-          }
-        ).join("&");
-
-    const { data } = await this.axios.post<TG.Response>(method, body, {
+    const { data } = await this.axios.post<TG.Response>(method, JSON.stringify(args || {}), {
       signal: abortController?.signal,
       validateStatus: () => true
     });

@@ -1,4 +1,6 @@
 /node_modules/
 /dist/
+/types/
 /.tgbotlib
 /test/
+*.nogit*
