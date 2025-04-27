@@ -4,10 +4,12 @@ import { assumeIs } from "./assume";
 import { EventEmitter } from "./emitter";
 import { InlineKeyboardButtonActionType, KeyboardType } from "./keyboard";
 import { parseRawMessage } from "./message";
+import { Photo } from "./photo";
 import { User } from "./user";
 import { parseRawChat } from ".";
+import type { Chat } from "./chat";
 import type { InlineCallback, InlineKeyboard, Keyboard } from "./keyboard";
-import type { Message } from "./message";
+import type { Message, MessageInit, ObjectMessageInit } from "./message";
 import type TG from "./tg";
 
 export type CommandCallback = (message: Message) => void | Promise<void>;
@@ -185,6 +187,56 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     return key;
   }
 
+  async sendMessage(chatId: number | `@${string}`, init: MessageInit): Promise<Message> {
+    if (typeof init === "string")
+      init = { text: init };
+    else if (init instanceof Photo)
+      init = { photo: init as Photo };
+
+    assumeIs<ObjectMessageInit>(init);
+
+    let replyParameters: TG.ReplyParameters | undefined;
+
+    if (init.replyTo) {
+      let message = init.replyTo;
+      if (typeof message === "number")
+        message = { id: message, chat: { id: chatId } as Chat } as Message;
+
+      replyParameters = {
+        message_id: message.id
+      };
+
+      if (chatId !== message.chat.id)
+        replyParameters.chat_id = message.chat.id;
+    }
+
+    let replyMarkup: TG.InlineKeyboardMarkup | TG.ReplyKeyboardMarkup | undefined;
+
+    if (init.keyboard)
+      replyMarkup = this.processKeyboard(init.keyboard);
+
+    const baseArgs = {
+      chat_id: chatId,
+      reply_parameters: replyParameters,
+      reply_markup: replyMarkup,
+      parse_mode: init.parseMode
+    };
+
+    if (init.photo) {
+      return parseRawMessage(await this.api.call("sendPhoto",
+        {
+          ...baseArgs, photo: typeof init.photo === "string" ? init.photo : init.photo.sizes[0].id,
+          caption: init.text
+        }
+      ), this);
+    }
+    else if (init.text) {
+      return parseRawMessage(await this.api.call("sendMessage", { ...baseArgs, text: init.text }), this);
+    }
+
+    throw new Error("Invalid message init");
+  }
+
   /** @internal */
   processKeyboard(keyboard: Keyboard): TG.InlineKeyboardMarkup | TG.ReplyKeyboardMarkup {
     switch (keyboard.type) {
@@ -268,7 +320,7 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     }, 5000);
     
     try {
-      await this.safeEmit("start");
+      this.safeEmit("start");
 
       while (!this.abortController.signal.aborted) {
         const updates = await this.api.callEx("getUpdates", {
@@ -279,15 +331,12 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
           abortController: this.abortController
         });
 
-        const promises: Promise<void>[] = [];
         for (const update of updates) {
           if (!updateOffset || update.update_id >= updateOffset)
             updateOffset = update.update_id + 1;
 
-          promises.push(this.processUpdates(update));
+          this.processUpdates(update);
         }
-
-        await Promise.all(promises);
       }
     }
     catch(error) {

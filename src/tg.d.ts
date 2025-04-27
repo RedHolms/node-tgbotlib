@@ -411,12 +411,25 @@ declare namespace TG {
     migrate_to_chat_id?: number;
     retry_after?: number;
   }
-  export interface InputMedia {}
-  export interface InputMediaPhoto {}
+  export interface InputMediaPhoto {
+    type: "photo";
+    media: string;
+    caption?: string;
+    parse_mode?: ParseMode;
+    caption_entities?: MessageEntity[];
+    show_caption_above_media?: boolean;
+    has_spoiler?: boolean;
+  }
   export interface InputMediaVideo {}
   export interface InputMediaAnimation {}
   export interface InputMediaAudio {}
   export interface InputMediaDocument {}
+  export type InputMedia =
+    InputMediaPhoto |
+    InputMediaVideo |
+    InputMediaAnimation |
+    InputMediaAudio |
+    InputMediaDocument;
   export interface InputFile {}
   export interface InputPaidMedia {}
   export interface InputPaidMediaPhoto {}

@@ -1,6 +1,7 @@
 import { parseRawChat } from "./chat";
+import { KeyboardType  } from "./keyboard";
 import { Photo } from "./photo";
-import { TGObject } from "./tgObject";
+import { TGObject, _BOT } from "./tgObject";
 import { User } from "./user";
 import type { Chat } from "./chat";
 import type { BotBase } from "./index";
@@ -30,7 +31,7 @@ export type ObjectMessageInit = OneOf<[{
 
 export type MessageInitWithoutReply = string | Photo | ObjectMessageInit;
 export type MessageInit = string | Photo | (ObjectMessageInit & OneOf<[
-  { replyTo: Message },
+  { replyTo: number | Message },
   { replyOptions: ReplyOptions },
   {}
 ]>);
@@ -53,6 +54,7 @@ abstract class MessageBase extends TGObject<MessageEvents> {
   id: number;
   chat: Chat;
   sender?: User;
+  declare type: MessageType;
 
   constructor(raw: TG.Message, bot: BotBase) {
     super(bot);
@@ -60,6 +62,69 @@ abstract class MessageBase extends TGObject<MessageEvents> {
     this.chat = parseRawChat(raw.chat, bot);
     if (raw.from)
       this.sender = new User(raw.from, bot);
+  }
+
+  async edit(data: string | ObjectMessageInit) {
+    if (typeof data === "string")
+      data = { text: data };
+
+    let replyMarkup: TG.InlineKeyboardMarkup | undefined;
+
+    if (data.keyboard) {
+      if (data.keyboard.type !== KeyboardType.INLINE)
+        throw new Error("Can edit only with inline keyboards");
+      replyMarkup = this[_BOT].processKeyboard(data.keyboard) as TG.InlineKeyboardMarkup;
+    }
+
+    const baseArgs = {
+      chat_id: this.chat.id,
+      message_id: this.id,
+      reply_markup: replyMarkup,
+      parse_mode: data.parseMode
+    };
+
+    let result: TG.Message | undefined = undefined;
+
+    if (data.photo) {
+      result = await this[_BOT].api.call(
+        "editMessageMedia",
+        { ...baseArgs, media: {
+          type: "photo",
+          media: typeof data.photo === "string" ? data.photo : data.photo.sizes[0].id,
+          caption: data.text
+        } }
+      ) as TG.Message;
+      
+      data.text = undefined;
+      baseArgs.reply_markup = undefined;
+    }
+
+    if (data.text) {
+      if (this.type === MessageType.PHOTO || this.type === MessageType.VIDEO)
+        result = await this[_BOT].api.call(
+          "editMessageCaption",
+          { ...baseArgs, caption: data.text }
+        ) as TG.Message;
+      else
+        result = await this[_BOT].api.call(
+          "editMessageText",
+          { ...baseArgs, text: data.text }
+        ) as TG.Message;
+
+      baseArgs.reply_markup = undefined;
+    }
+
+    if (baseArgs.reply_markup)
+      result = await this[_BOT].api.call("editMessageReplyMarkup", baseArgs) as TG.Message;
+
+    if (!result)
+      return this;
+
+    return parseRawMessage(result, this[_BOT]);
+  }
+
+  delete(): Promise<void> {
+    return this[_BOT].api.call("deleteMessage", { chat_id: this.chat.id, message_id: this.id });
   }
 
   reply(init: MessageInitWithoutReply): Promise<Message> {

@@ -89,7 +89,63 @@ interface APIMethods {
       url?: string;
       cache_time?: number;
     },
-    result: true
+    result: void
+  },
+  ["editMessageText"]: {
+    args: {
+      business_connection_id?: string;
+      chat_id?: string | number;
+      message_id?: number;
+      inline_message_id?: string;
+      text: string;
+      parse_mode?: TG.ParseMode;
+      entities?: TG.MessageEntity[];
+      link_preview_options?: TG.LinkPreviewOptions;
+      reply_markup?: TG.InlineKeyboardMarkup;
+    },
+    result: TG.Message | void // void if message was inline
+  },
+  ["editMessageCaption"]: {
+    args: {
+      business_connection_id?: string;
+      chat_id?: string | number;
+      message_id?: number;
+      inline_message_id?: string;
+      caption: string;
+      parse_mode?: TG.ParseMode;
+      caption_entities?: TG.MessageEntity[];
+      show_caption_above_media?: boolean;
+      reply_markup?: TG.InlineKeyboardMarkup;
+    },
+    result: TG.Message | void // void if message was inline
+  },
+  ["editMessageMedia"]: {
+    args: {
+      business_connection_id?: string;
+      chat_id?: string | number;
+      message_id?: number;
+      inline_message_id?: string;
+      media: TG.InputMedia;
+      reply_markup?: TG.InlineKeyboardMarkup;
+    },
+    result: TG.Message | void // void if message was inline
+  },
+  ["editMessageReplyMarkup"]: {
+    args: {
+      business_connection_id?: string;
+      chat_id?: string | number;
+      message_id?: number;
+      inline_message_id?: string;
+      reply_markup?: TG.InlineKeyboardMarkup;
+    },
+    result: TG.Message | void // void if message was inline
+  },
+  ["deleteMessage"]: {
+    args: {
+      chat_id: string | number;
+      message_id: number;
+    },
+    result: void
   }
 }
 

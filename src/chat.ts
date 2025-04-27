@@ -1,9 +1,6 @@
-import { assumeIs } from "./assume";
-import { parseRawMessage } from "./message";
-import { Photo } from "./photo";
 import { TGObject, _BOT } from "./tgObject";
 import type { BotBase } from ".";
-import type { Message, MessageInit, ObjectMessageInit } from "./message";
+import type { Message, MessageInit } from "./message";
 import type TG from "./tg";
 import type { User } from "./user";
 
@@ -30,52 +27,8 @@ class ChatBase extends TGObject<ChatEvents> {
       this.id = 0;
   }
 
-  async send(init: MessageInit): Promise<Message> {
-    if (typeof init === "string")
-      init = { text: init };
-    else if (init instanceof Photo)
-      init = { photo: init as Photo };
-
-    assumeIs<ObjectMessageInit>(init);
-
-    let replyParameters: TG.ReplyParameters | undefined;
-
-    if (init.replyTo) {
-      const message = init.replyTo;
-
-      replyParameters = {
-        message_id: message.id
-      };
-
-      if (this.id !== message.chat.id)
-        replyParameters.chat_id = message.chat.id;
-    }
-
-    let replyMarkup: TG.InlineKeyboardMarkup | TG.ReplyKeyboardMarkup | undefined;
-
-    if (init.keyboard)
-      replyMarkup = this[_BOT].processKeyboard(init.keyboard);
-
-    const baseArgs = {
-      chat_id: this.id,
-      reply_parameters: replyParameters,
-      reply_markup: replyMarkup,
-      parse_mode: init.parseMode
-    };
-
-    if (init.photo) {
-      return parseRawMessage(await this[_BOT].api.call("sendPhoto",
-        {
-          ...baseArgs, photo: typeof init.photo === "string" ? init.photo : init.photo.sizes[0].id,
-          caption: init.text
-        }
-      ), this[_BOT]);
-    }
-    else if (init.text) {
-      return parseRawMessage(await this[_BOT].api.call("sendMessage", { ...baseArgs, text: init.text }), this[_BOT]);
-    }
-
-    throw new Error("Invalid message init");
+  send(init: MessageInit): Promise<Message> {
+    return this[_BOT].sendMessage(this.id, init);
   }
 }
 
