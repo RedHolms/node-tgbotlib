@@ -1,3 +1,6 @@
+import { allowGC, preventGC } from "./utils";
+import type { BotBase } from ".";
+
 type Callback<E, K extends keyof E> = E[K] extends unknown[] ? ((...args: E[K]) => void | Promise<void>) : never;
 
 export type EventsMap<T> = {
@@ -23,19 +26,33 @@ export class EventConnection {
 // So we don't overlap with anything
 const _DATA = Symbol("EventEmitterData");
 
+/*
+ * Funny part with GC here.
+ * Because we're not storing any strong reference to objects in libary, these objects are free to be deleted by GC at
+ *  any time user doesn't use them, but this is really bad with events. The whole point of this caching is to be able to
+ *  listen for event on any object, but if object is gone - no events for it. Because of that we're forced to prevent GC
+ *  with workaround so we can emit event to it later.
+ */
+
 export class EventEmitter<E extends EventsMap<E>> {
   private [_DATA]: {
+    bot: BotBase;
     events: Map<keyof E, ConnectionInfo[]>;
   };
 
-  constructor() {
+  constructor(bot: BotBase) {
     this[_DATA] = {
+      bot,
       events: new Map()
     };
   }
 
+  // really bad workaround
   /** @internal */
-  emit<K extends keyof E>(event: K, ...args: E[K]): [count: number, promises: Promise<void>] {
+  protected __setBot(bot: BotBase) { this[_DATA].bot = bot; }
+
+  /** @internal */
+  emit<K extends keyof E>(event: K, ...args: E[K]): [count: number, promise: Promise<void>] {
     const eventData = this[_DATA].events.get(event);
 
     if (!eventData)
@@ -53,7 +70,27 @@ export class EventEmitter<E extends EventsMap<E>> {
 
     this[_DATA].events.set(event, newData);
 
+    if (newData.length === 0)
+      allowGC(this);
+
     return [promises.length, Promise.all(promises).then(()=>{})];
+  }
+
+  /** @internal */
+  safeEmit<K extends keyof E>(event: K, ...args: E[K]): [count: number, promise: Promise<void>] {
+    const [count, promise] = this.emit(event, ...args);
+
+    return [count, (async () => {
+      try {
+        await promise;
+      }
+      catch(error: any) {
+        const { log } = this[_DATA].bot;
+  
+        log.error(`Error while emitting "${String(event)}" event for ${this.constructor.name}`);
+        log.error(error);
+      }
+    })()];
   }
 
   on<K extends keyof E>(event: K, callback: Callback<E, K>): EventConnection {
@@ -64,6 +101,7 @@ export class EventEmitter<E extends EventsMap<E>> {
 
     const connection = EventConnection.create(event as string);
     eventData.push({ connection: new WeakRef(connection), callback, oneTime: false });
+    preventGC(this);
     return connection;
   }
   
@@ -89,6 +127,8 @@ export class EventEmitter<E extends EventsMap<E>> {
         if (callback)
           callback(...args as E[K]);
       }, oneTime: true });
+
+      preventGC(this);
     });
   }
 
@@ -99,9 +139,13 @@ export class EventEmitter<E extends EventsMap<E>> {
     if (!eventData)
       return;
 
+    let newEventData;
     this[_DATA].events.set(
       event as keyof E,
-      eventData.filter((v) => v.connection?.deref() !== connection)
+      newEventData = eventData.filter((v) => v.connection?.deref() !== connection)
     );
+
+    if (newEventData.length === 0)
+      allowGC(this);
   }
 }

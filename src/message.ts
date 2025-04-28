@@ -51,8 +51,10 @@ export interface MessageEvents {
 
 abstract class MessageBase extends TGObject<MessageEvents> {
   declare id: number;
+  declare accessible: boolean; // can be false if message was deleted or bot just can't access it
   declare chat: Chat;
   declare sender?: User;
+  declare sentAt: number; // unix seconds
   declare type: MessageType;
 
   async edit(data: string | ObjectMessageInit) {
@@ -114,8 +116,9 @@ abstract class MessageBase extends TGObject<MessageEvents> {
     return this[_STORAGE].receive(result);
   }
 
-  delete(): Promise<void> {
-    return this[_BOT].api.call("deleteMessage", { chat_id: this.chat.id, message_id: this.id });
+  async delete(): Promise<void> {
+    await this[_BOT].api.call("deleteMessage", { chat_id: this.chat.id, message_id: this.id });
+    this.accessible = false;
   }
 
   reply(init: MessageInitWithoutReply): Promise<Message> {

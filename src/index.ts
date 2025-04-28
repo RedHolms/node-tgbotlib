@@ -8,6 +8,7 @@ import { InlineKeyboardButtonActionType, KeyboardType } from "./keyboard";
 import { MessagesStorage } from "./message";
 import { Photo } from "./photo";
 import { UsersStorage } from "./user";
+import { sleep } from "./utils";
 import type { Chat } from "./chat";
 import type { InlineCallback, InlineKeyboard, Keyboard } from "./keyboard";
 import type { Message, MessageInit, ObjectMessageInit } from "./message";
@@ -31,6 +32,18 @@ export interface BotBaseEvents {
   start:    [];
   shutdown: [];
   message:  [message: Message];
+}
+
+export interface GarbageStatistics {
+  memoryUsage: NodeJS.MemoryUsage;
+  messagesCount: number;
+  usersCount: number;
+  chatsCount: number;
+}
+
+export interface GarbageCollectionStatistics {
+  before: GarbageStatistics;
+  after: GarbageStatistics;
 }
 
 export abstract class BotBase extends EventEmitter<BotBaseEvents> {
@@ -62,7 +75,8 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
   };
 
   constructor() {
-    super();
+    super(void 0 as any);
+    this.__setBot(this);
 
     log4js.configure({
       appenders: {
@@ -83,7 +97,7 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     });
     this.log = log4js.getLogger();
 
-    this.api = new TelegramAPI();
+    this.api = new TelegramAPI(this);
     this.handlers = new Map();
     this.commands = new Map();
     this.inlineCalbacks = new Map();
@@ -96,28 +110,56 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
 
   abstract init(): void | Promise<void>;
 
-  private async processUpdates(update: TG.Update) {
-    await Promise.all((Object.keys(update) as (keyof TG.Update)[]).map((key) => {
+  public getGarbageStatistics(): GarbageStatistics {
+    return {
+      memoryUsage: process.memoryUsage(),
+      messagesCount: this.messages.objectsCount,
+      usersCount: this.users.objectsCount,
+      chatsCount: this.chats.objectsCount
+    };
+  }
+
+  public async collectGarbage(): Promise<GarbageCollectionStatistics | undefined> {
+    if (!gc) {
+      this.log.warn("Calling collectGarbage(), but gc is not available! Pass --expose-gc to our node js arguments");
+      return undefined;
+    }
+
+    const before = this.getGarbageStatistics();
+    await gc({
+      execution: "async"
+    });
+
+    await sleep(5);
+
+    const after = this.getGarbageStatistics();
+
+    return { before, after };
+  }
+
+  private processUpdates(update: TG.Update) {
+    const keys = Object.keys(update) as (keyof TG.Update)[];
+    keys.map((key) => {
       if (key === "update_id")
-        return Promise.resolve();
+        return;
 
       const handler = this.handlers.get(key);
 
       if (!handler) {
         this.log.warn(`Unknown update type "${key}"`);
-        return Promise.resolve();
+        return;
       }
 
-      return handler(update[key]!);
-    }));
+      handler(update[key]!);
+    });
   }
 
   private async handleNewMessage(raw: TG.Message) {
     const message = this.messages.receive(raw);
 
-    const promises: Promise<void>[] = [];
-
-    promises.push(this.safeEmit("message", message as any));
+    if (message.chat.safeEmit("message", message)[0] == 0) {
+      this.safeEmit("message", message);
+    }
 
     if (raw.entities) {
       // Here we're sure that text must be a string
@@ -135,12 +177,10 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
 
           const callback = this.commands.get(command);
           if (callback)
-            promises.push((callback as any)(message));
+            callback(message);
         }
       }
     }
-
-    await Promise.all(promises);
   }
 
   private async handleCallbackQuery(raw: TG.CallbackQuery) {
@@ -349,16 +389,6 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     catch(error) {
       if (!(error instanceof CanceledError))
         throw error;
-    }
-  }
-
-  private async safeEmit<K extends keyof BotBaseEvents>(event: K, ...args: BotBaseEvents[K]): Promise<void> {
-    try {
-      await this.emit(event, ...args);
-    }
-    catch(error: any) {
-      this.log.error(`Error in event ${event}`);
-      this.log.error(error);
     }
   }
 

@@ -1,4 +1,6 @@
 import axios from "axios";
+import { sleep } from "./utils";
+import type { BotBase } from ".";
 import type TG from "./tg";
 import type { AxiosInstance } from "axios";
 
@@ -159,6 +161,8 @@ type APICallFuncArgs<Method extends keyof APIMethods> =
 export class TelegramAPI {
   private axios?: AxiosInstance;
 
+  constructor(private bot: BotBase) {}
+
   setToken(token: string) {
     this.axios = axios.create({
       baseURL: `https://api.telegram.org/bot${token}/`,
@@ -172,30 +176,43 @@ export class TelegramAPI {
     return this.callEx(method, { args: args[0] });
   }
 
-  async callEx(method: string, config: { args?: any, abortController?: AbortController }): Promise<any> {
+  async callEx(method: string, config: {
+    args?: any,
+    abortController?: AbortController,
+    waitIfNeeded?: boolean
+  }): Promise<any> {
     if (!this.axios)
       throw new Error("Set bot token before calling API");
 
-    const { args, abortController } = config;
+    const { args, abortController, waitIfNeeded } = config;
 
-    const { data } = await this.axios.post<TG.Response>(method, JSON.stringify(args || {}), {
-      signal: abortController?.signal,
-      validateStatus: () => true
-    });
+    while (true) {
+      const { data } = await this.axios.post<TG.Response>(method, JSON.stringify(args || {}), {
+        signal: abortController?.signal,
+        validateStatus: () => true
+      });
 
-    if (!data.ok) {
-      throw new APIError(
-        method,
-        args,
-        data.error_code,
-        data.description || "Unknown error",
-        {
-          migrateToChatId: data.parameters?.migrate_to_chat_id,
-          retryAfter: data.parameters?.retry_after
+      if (!data.ok) {
+        if (data.parameters?.retry_after && waitIfNeeded) {
+          this.bot.log.warn("Too much requests! Waiting %d seconds before next API call", data.parameters.retry_after);
+          this.bot.log.warn("While calling %s. Info: ", method, data);
+          await sleep(data.parameters.retry_after * 1000);
+          continue;
         }
-      );
-    }
 
-    return data.result;
+        throw new APIError(
+          method,
+          args,
+          data.error_code,
+          data.description || "Unknown error",
+          {
+            migrateToChatId: data.parameters?.migrate_to_chat_id,
+            retryAfter: data.parameters?.retry_after
+          }
+        );
+      }
+
+      return data.result;
+    }
   }
 }

@@ -12,7 +12,9 @@ export enum ChatType {
 }
 
 export interface ChatEvents {
-  message: [message: Message];
+  message:       [message: Message];
+  messageEdit:   [message: Message];
+  messageDelete: [message: Message];
 }
 
 class ChatBase extends TGObject<ChatEvents> {

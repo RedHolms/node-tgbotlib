@@ -10,7 +10,7 @@ export abstract class TGObject<E extends EventsMap<E> = {}> extends EventEmitter
   protected [_STORAGE]: TGObjectStorage<TGObject<E>>;
 
   constructor(bot: BotBase, storage: TGObjectStorage<TGObject<E>>) {
-    super();
+    super(bot);
     this[_BOT] = bot;
     this[_STORAGE] = storage;
   }

@@ -20,3 +20,11 @@ declare namespace Mark { const Mark: unique symbol; }
 export interface UniqueType<T> { [Mark.Mark]: T; }
 
 export type Awaitable<T> = T | PromiseLike<T>;
+
+export function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+const PreventationRegistry = new Map<object, 1>();
+export function preventGC(obj: object) { PreventationRegistry.set(obj, 1); }
+export function allowGC(obj: object) { PreventationRegistry.delete(obj); }
