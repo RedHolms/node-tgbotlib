@@ -35,11 +35,11 @@ export class EventEmitter<E extends EventsMap<E>> {
   }
 
   /** @internal */
-  emit<K extends keyof E>(event: K, ...args: E[K]): Promise<number> {
+  emit<K extends keyof E>(event: K, ...args: E[K]): [count: number, promises: Promise<void>] {
     const eventData = this[_DATA].events.get(event);
 
     if (!eventData)
-      return Promise.resolve(0);
+      return [0, Promise.resolve()];
 
     const newData = [];
 
@@ -53,7 +53,7 @@ export class EventEmitter<E extends EventsMap<E>> {
 
     this[_DATA].events.set(event, newData);
 
-    return Promise.all(promises).then(() => promises.length);
+    return [promises.length, Promise.all(promises).then(()=>{})];
   }
 
   on<K extends keyof E>(event: K, callback: Callback<E, K>): EventConnection {

@@ -24,6 +24,7 @@ export default tsEslint.config(
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-import-type-side-effects": "error",
       "@typescript-eslint/no-invalid-void-type": "off",
+      "@typescript-eslint/no-extraneous-class": "off",
       "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
       "import/order": ["error", {
         groups: [

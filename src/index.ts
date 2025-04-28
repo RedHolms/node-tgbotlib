@@ -1,16 +1,18 @@
 import { CanceledError } from "axios";
+import log4js from "log4js";
 import { TelegramAPI } from "./api";
 import { assumeIs } from "./assume";
+import { ChatsStorage  } from "./chat";
 import { EventEmitter } from "./emitter";
 import { InlineKeyboardButtonActionType, KeyboardType } from "./keyboard";
-import { parseRawMessage } from "./message";
+import { MessagesStorage } from "./message";
 import { Photo } from "./photo";
-import { User } from "./user";
-import { parseRawChat } from ".";
+import { UsersStorage } from "./user";
 import type { Chat } from "./chat";
 import type { InlineCallback, InlineKeyboard, Keyboard } from "./keyboard";
 import type { Message, MessageInit, ObjectMessageInit } from "./message";
 import type TG from "./tg";
+import type { Logger } from "log4js";
 
 export type CommandCallback = (message: Message) => void | Promise<void>;
 type UpdateHandler<T> = (update: NonNullable<T>) => Promise<any>;
@@ -31,24 +33,22 @@ export interface BotBaseEvents {
   message:  [message: Message];
 }
 
-export interface LoggerLike {
-  debug(message: any, ...args: any[]): void;
-  info(message: any, ...args: any[]): void;
-  warn(message: any, ...args: any[]): void;
-  error(message: any, ...args: any[]): void;
-  fatal(message: any, ...args: any[]): void;
-}
-
 export abstract class BotBase extends EventEmitter<BotBaseEvents> {
   api: TelegramAPI;
+  log: Logger;
   private abortController?: AbortController;
   private handlers: UpdatesHandlersMap;
-  // <chatid>_<messageid> -> weak ref to object
-  private messages: Map<string, WeakRef<Message>>;
   private commands: Map<string, CommandCallback>;
   // todo weak refs everywhere
   private inlineCalbacks: Map<string, InlineCallback>;
   private inlineCalbacksKeys: Map<InlineCallback, string>;
+
+  /** @internal */
+  messages: MessagesStorage;
+  /** @internal */
+  users: UsersStorage;
+  /** @internal */
+  chats: ChatsStorage;
 
   declare protected botInfo: {
     id: number;
@@ -63,18 +63,35 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
 
   constructor() {
     super();
+
+    log4js.configure({
+      appenders: {
+        console: {
+          type: "stdout",
+          layout: {
+            type: "pattern",
+            pattern: "\x1B[90m%d{dd/MM/yyyy hh:mm:ss.SSS}\x1B[39m %[%-5p%] %m"
+          }
+        }
+      },
+      categories: {
+        default: {
+          appenders: [ "console" ],
+          level: "trace"
+        }
+      }
+    });
+    this.log = log4js.getLogger();
+
     this.api = new TelegramAPI();
     this.handlers = new Map();
-    this.messages = new Map();
     this.commands = new Map();
     this.inlineCalbacks = new Map();
     this.inlineCalbacksKeys = new Map();
-  }
 
-  declare protected log: LoggerLike;
-  getLogger(): LoggerLike {
-    const stub = () => {};
-    return { debug: stub, info: stub, warn: stub, error: stub, fatal: stub };
+    this.messages = new MessagesStorage(this);
+    this.users = new UsersStorage(this);
+    this.chats = new ChatsStorage(this);
   }
 
   abstract init(): void | Promise<void>;
@@ -96,9 +113,7 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
   }
 
   private async handleNewMessage(raw: TG.Message) {
-    const key = `${raw.chat.id}_${raw.message_id}`;
-    const message = parseRawMessage(raw, this);
-    this.messages.set(key, new WeakRef(message));
+    const message = this.messages.receive(raw);
 
     const promises: Promise<void>[] = [];
 
@@ -144,7 +159,10 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
         return;
       }
 
-      let result = await callback(new User(raw.from, this), raw.message && parseRawChat(raw.message.chat, this));
+      let result = await callback(
+        this.users.receive(raw.from),
+        raw.message && this.chats.receive(raw.message.chat)
+      );
       if (typeof result === "string")
         result = { text: result };
 
@@ -223,15 +241,15 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     };
 
     if (init.photo) {
-      return parseRawMessage(await this.api.call("sendPhoto",
+      return this.messages.receive(await this.api.call("sendPhoto",
         {
           ...baseArgs, photo: typeof init.photo === "string" ? init.photo : init.photo.sizes[0].id,
           caption: init.text
         }
-      ), this);
+      ));
     }
     else if (init.text) {
-      return parseRawMessage(await this.api.call("sendMessage", { ...baseArgs, text: init.text }), this);
+      return this.messages.receive(await this.api.call("sendMessage", { ...baseArgs, text: init.text }));
     }
 
     throw new Error("Invalid message init");
@@ -300,8 +318,6 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     this.api.setToken(process.env.BOT_TOKEN);
 
     await this.updateBotInfo();
-    this.log = this.getLogger();
-
     await this.init();
 
     this.handlers.set("message", this.handleNewMessage.bind(this));
@@ -309,15 +325,6 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     
     this.abortController = new AbortController();
     let updateOffset: number | undefined = undefined;
-
-    const cleanerInterval = setInterval(() => {
-      for (const k of this.messages.keys()) {
-        if (this.messages.get(k)!.deref() === undefined) {
-          this.log.debug("Message %s destroyed by GC", k);
-          this.messages.delete(k);
-        }
-      }
-    }, 5000);
     
     try {
       this.safeEmit("start");
@@ -342,9 +349,6 @@ export abstract class BotBase extends EventEmitter<BotBaseEvents> {
     catch(error) {
       if (!(error instanceof CanceledError))
         throw error;
-    }
-    finally {
-      clearInterval(cleanerInterval);
     }
   }
 

@@ -2,7 +2,7 @@
   "name": "tgbotlib",
   "author": "RedHolms",
   "description": "SDK to build Telegram bots",
-  "license": "Free to use, edit and distribute",
+  "license": "Free to use, edit and distribute ",
   "version": "1.0.0",
   "repository": {
     "type": "git",
@@ -10,7 +10,9 @@
   },
   "keywords": [
     "tg",
-    "telegram"
+    "telegram",
+    "bot",
+    "bots"
   ],
   "main": "dist/index.js",
   "types": "./types/index.d.ts",
@@ -51,6 +53,5 @@
     "src",
     "dist",
     "types"
-  ],
-  "packageManager": "yarn@4.9.1"
+  ]
 }

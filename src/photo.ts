@@ -1,27 +1,24 @@
-import { File } from "./file";
-import { TGObject } from "./tgObject";
-import type { BotBase } from ".";
+import { TelegramFile } from "./file";
 import type TG from "./tg";
 
-export class PhotoSize extends File {
+export class PhotoSize extends TelegramFile {
   width: number;
   height: number;
 
-  constructor(raw: TG.PhotoSize, bot: BotBase) {
-    super(raw, bot);
+  constructor(raw: TG.PhotoSize) {
+    super(raw);
     this.width = raw.width;
     this.height = raw.height;
   }
 }
 
-export class Photo extends TGObject {
+export class Photo {
   sizes: PhotoSize[];
 
-  constructor(raw: TG.PhotoSize[], bot: BotBase) {
-    super(bot);
+  constructor(raw: TG.PhotoSize[]) {
     this.sizes = [];
     for (const size of raw)
-      this.sizes.push(new PhotoSize(size, bot));
+      this.sizes.push(new PhotoSize(size));
     this.sizes.sort((a, b) => a.width - b.width);
   }
 }

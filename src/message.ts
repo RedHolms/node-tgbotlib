@@ -1,12 +1,11 @@
-import { parseRawChat } from "./chat";
 import { KeyboardType  } from "./keyboard";
 import { Photo } from "./photo";
-import { TGObject, _BOT } from "./tgObject";
-import { User } from "./user";
+import { TGObject, TGObjectStorage, _BOT, _STORAGE } from "./tgObject";
 import type { Chat } from "./chat";
 import type { BotBase } from "./index";
 import type { Keyboard } from "./keyboard";
 import type TG from "./tg";
+import type { User } from "./user";
 import type { OneOf } from "./utils";
 
 export interface MediaGroup {
@@ -51,18 +50,10 @@ export interface MessageEvents {
 }
 
 abstract class MessageBase extends TGObject<MessageEvents> {
-  id: number;
-  chat: Chat;
-  sender?: User;
+  declare id: number;
+  declare chat: Chat;
+  declare sender?: User;
   declare type: MessageType;
-
-  constructor(raw: TG.Message, bot: BotBase) {
-    super(bot);
-    this.id = raw.message_id;
-    this.chat = parseRawChat(raw.chat, bot);
-    if (raw.from)
-      this.sender = new User(raw.from, bot);
-  }
 
   async edit(data: string | ObjectMessageInit) {
     if (typeof data === "string")
@@ -120,7 +111,7 @@ abstract class MessageBase extends TGObject<MessageEvents> {
     if (!result)
       return this;
 
-    return parseRawMessage(result, this[_BOT]);
+    return this[_STORAGE].receive(result);
   }
 
   delete(): Promise<void> {
@@ -148,46 +139,68 @@ abstract class MessageBase extends TGObject<MessageEvents> {
 };
 
 export class TextMessage extends MessageBase {
-  type: MessageType.TEXT;
-  text: string;
+  declare type: MessageType.TEXT;
+  declare text: string;
 
-  constructor(raw: TG.Message & { text: string }, bot: BotBase) {
-    super(raw, bot);
+  constructor(bot: BotBase, storage: MessagesStorage) {
+    super(bot, storage);
     this.type = MessageType.TEXT;
-    this.text = raw.text;
   }
 };
 
 export class PhotoMessage extends MessageBase {
-  type: MessageType.PHOTO;
-  photo: Photo;
-  caption?: string;
+  declare type: MessageType.PHOTO;
+  declare photo: Photo;
+  declare caption?: string;
 
-  constructor(raw: TG.Message & { photo: TG.PhotoSize[] }, bot: BotBase) {
-    super(raw, bot);
+  constructor(bot: BotBase, storage: MessagesStorage) {
+    super(bot, storage);
     this.type = MessageType.PHOTO;
-    this.photo = new Photo(raw.photo, bot);
-    if (raw.caption)
-      this.caption = raw.caption;
   }
 };
 
 export class UnknownMessage extends MessageBase {
-  type: MessageType.UNKNOWN;
+  declare type: MessageType.UNKNOWN;
 
-  constructor(raw: TG.Message, bot: BotBase) {
-    super(raw, bot);
+  constructor(bot: BotBase, storage: MessagesStorage) {
+    super(bot, storage);
     this.type = MessageType.UNKNOWN;
   }
 };
 
 export type Message = TextMessage | PhotoMessage | UnknownMessage;
 
-/** @internal */
-export function parseRawMessage(raw: TG.Message, bot: BotBase): Message {
-  if (raw.text !== undefined)
-    return new TextMessage(raw as any, bot);
-  if (raw.photo !== undefined)
-    return new PhotoMessage(raw as any, bot);
-  return new UnknownMessage(raw, bot);
-}
+export class MessagesStorage extends TGObjectStorage<Message, TG.Message> {
+  extractId(message: Message) { return `${message.chat.id}_${message.id}`; }
+  extractIdFromRaw(raw: TG.Message) { return `${raw.chat.id}_${raw.message_id}`; }
+
+  fromRaw(raw: TG.Message) {
+    let object: Message;
+
+    if (raw.text !== undefined) {
+      object = new TextMessage(this.bot, this);
+      object.text = raw.text;
+    }
+    else if (raw.photo !== undefined) {
+      object = new PhotoMessage(this.bot, this);
+      object.photo = new Photo(raw.photo);
+      if (raw.caption)
+        object.caption = raw.caption;
+    }
+    else {
+      object = new UnknownMessage(this.bot, this);
+    }
+
+    object.id = raw.message_id;
+    object.chat = this.bot.chats.receive(raw.chat);
+    if (raw.from)
+      object.sender = this.bot.users.receive(raw.from);
+
+    return object;
+  }
+  
+  update(object: Message, raw: TG.Message): void {
+    //TODO
+  }
+};
+
